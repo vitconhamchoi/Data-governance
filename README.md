@@ -46,7 +46,119 @@ flowchart LR
     L[Ứng dụng nghiệp vụ<br/>Trợ lý hỏi đáp văn bản<br/>Tóm tắt báo cáo<br/>OCR hồ sơ<br/>Phân tích khách hàng<br/>Agent hỗ trợ tác nghiệp]
 ```
 
-## 3. Giải thích ngắn theo từng lớp
+## 3. Bộ sơ đồ C4 phục vụ thẩm định
+
+Các sếp thường cần nhìn kiến trúc theo nhiều mức độ, từ tổng quan đến chi tiết triển khai. Vì vậy em bổ sung bộ C4 rút gọn gồm context, container và component.
+
+### 3.1. C4 Level 1, System Context
+
+```mermaid
+flowchart LR
+    U1[Khối lãnh đạo và điều hành] --> P[AI Data Platform]
+    U2[Khối nghiệp vụ, vận hành, chăm sóc khách hàng] --> P
+    U3[Khối phân tích dữ liệu và khoa học dữ liệu] --> P
+    S1[Hệ thống nguồn nội bộ<br/>CRM, ERP, Billing, HRM, Core nghiệp vụ] --> P
+    S2[Kho tài liệu nội bộ<br/>Công văn, quy trình, hợp đồng, email, PDF] --> P
+    S3[Nguồn ngoài<br/>Đối tác, open data, dữ liệu quản lý nhà nước] --> P
+    P --> O1[Dashboard và BI]
+    P --> O2[Ứng dụng AI, RAG, OCR, Copilot]
+    P --> O3[Báo cáo, cảnh báo, API dữ liệu]
+```
+
+**Ý nghĩa:**
+- Hệ thống AI Data Platform đứng giữa toàn bộ nguồn dữ liệu và các nhóm sử dụng
+- Đầu ra không chỉ là chatbot, mà còn là BI, báo cáo, OCR, dự báo và trợ lý nghiệp vụ
+
+### 3.2. C4 Level 2, Container Diagram
+
+```mermaid
+flowchart LR
+    A[Data Sources] --> B[Ingestion Layer]
+    B --> C[Data Lakehouse]
+    C --> D[Data Processing and Quality]
+    C --> E[Governance and Security]
+    D --> F[Shared Data Services]
+    E --> F
+    F --> G1[BI and Analytics Services]
+    F --> G2[ML Services]
+    F --> G3[GenAI and RAG Services]
+    G1 --> H[Business Applications]
+    G2 --> H
+    G3 --> H
+    H --> I[Monitoring and Feedback]
+    I --> G2
+    I --> G3
+```
+
+**Các container chính:**
+- **Ingestion Layer:** ETL, ELT, CDC, API sync, streaming
+- **Data Lakehouse:** lưu trữ và hợp nhất dữ liệu theo zone
+- **Data Processing and Quality:** chuẩn hóa, làm sạch, MDM, quy tắc chất lượng
+- **Governance and Security:** catalog, lineage, IAM, masking, audit
+- **Shared Data Services:** semantic layer, data mart, feature data, knowledge base
+- **ML Services:** training, serving, model registry
+- **GenAI and RAG Services:** chunking, embedding, retrieval, prompt orchestration
+- **Monitoring and Feedback:** theo dõi chi phí, độ chính xác, drift, phản hồi người dùng
+
+### 3.3. C4 Level 3, Component Diagram cho nhánh GenAI và RAG
+
+```mermaid
+flowchart LR
+    A[Kho tài liệu nội bộ] --> B[Document Ingestion]
+    B --> C[Parsing and Chunking]
+    C --> D[Embedding Service]
+    D --> E[Vector Store]
+    C --> F[Metadata Store]
+
+    U[Người dùng nghiệp vụ] --> G[AI Assistant UI]
+    G --> H[Query Orchestrator]
+    H --> I[Retriever]
+    I --> E
+    I --> F
+    H --> J[LLM Gateway]
+    I --> J
+    J --> K[Answer Composer]
+    K --> G
+
+    L[Guardrail and Policy Engine] --> H
+    M[Logging and Evaluation] --> H
+    M --> J
+```
+
+**Các component quan trọng:**
+- **Document Ingestion:** lấy tài liệu từ DMS, share drive, email, ECM
+- **Parsing and Chunking:** bóc tách nội dung, chia đoạn, chuẩn hóa metadata
+- **Embedding Service:** biến tài liệu thành vector để tìm kiếm ngữ nghĩa
+- **Vector Store + Metadata Store:** lưu chỉ mục tìm kiếm và ngữ cảnh quản trị
+- **Query Orchestrator:** điều phối truy vấn, chính sách, fallback, routing model
+- **Retriever:** lấy ngữ cảnh đúng trước khi gọi model
+- **LLM Gateway:** cổng gọi model, quản lý cost, model selection, audit
+- **Guardrail and Policy Engine:** kiểm soát dữ liệu nhạy cảm, prompt injection, phạm vi truy cập
+- **Logging and Evaluation:** chấm chất lượng câu trả lời, lưu vết, phục vụ tuning
+
+### 3.4. C4 Level 3, Component Diagram cho nhánh OCR và xử lý hồ sơ
+
+```mermaid
+flowchart LR
+    A[Ảnh scan, PDF, chứng từ] --> B[Document Intake]
+    B --> C[OCR Engine]
+    C --> D[Field Extraction]
+    D --> E[Validation Rules]
+    E --> F[Human Review Queue]
+    E --> G[Structured Output API]
+    F --> G
+    G --> H[Core Business System]
+    G --> I[Data Lakehouse]
+    J[Monitoring and Audit] --> C
+    J --> D
+    J --> E
+```
+
+**Ý nghĩa:**
+- Đây là ngách dễ kiếm tiền vì quy trình rõ, KPI rõ, và ROI thường đo được nhanh
+- Có human review ở các điểm nhạy cảm nên dễ đưa vào vận hành thật
+
+## 4. Giải thích ngắn theo từng lớp
 
 ### 3.1. Nguồn dữ liệu
 
