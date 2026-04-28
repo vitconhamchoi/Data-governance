@@ -2,6 +2,11 @@
 
 Tài liệu này tóm tắt một mô hình kiến trúc dữ liệu thực dụng để triển khai AI trong doanh nghiệp lớn, đặc biệt phù hợp với bối cảnh VNPT, ngân hàng, và doanh nghiệp nhà nước.
 
+## Danh mục tài liệu
+
+- [README.md](README.md): kiến trúc dữ liệu, governance, RAG, OCR, và AI platform ở mức tổng thể
+- [02_harness_engineering_trien_khai_chi_tiet.md](02_harness_engineering_trien_khai_chi_tiet.md): bản triển khai chi tiết cho harness engineering, gồm orchestration, tool contract, approval, memory, observability, eval, và roadmap 90 ngày
+
 ## 1. Mục tiêu của kiến trúc
 
 Kiến trúc này không bắt đầu từ model. Nó bắt đầu từ 3 nền tảng:
