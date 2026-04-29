@@ -11,31 +11,102 @@ Mục tiêu: hiểu harness nằm ở đâu trong hệ thống lớn hơn, gồm
 
 - Là khung điều phối (orchestration framework) để AI làm việc ổn định trong môi trường production
 - Không chỉ là prompt engineering — là thiết kế hệ thống đầy đủ với state, policy, tool, memory, và eval
-- Trả lời các câu hỏi: input nào hợp lệ, task được phân loại ra sao, tool nào được gọi, lỗi nào tự retry, hành động nào cần approval, chất lượng đầu ra được đo ra sao
+- Trả lời các câu hỏi: input nào hợp lệ, task được phân loại ra sao, tool nào được gọi, lỗi nào tự retry, hành động nào cần approval, chất lượng đầu ra được đo thế nào
 - Giao điểm giữa: AI application architecture, distributed systems, platform engineering, observability, policy & safety, product workflow design
 
 ---
 
 ## 3. System Context Diagram
 
+> **Scope:** Level-1 context map (C4 Model — Context View).  
+> Mục đích: xác định **ai** tương tác với hệ thống, qua **kênh** nào, và hệ thống phụ thuộc vào **external system** nào.  
+> Chi tiết internal component xem Section 4.
+
 ```mermaid
-graph TD
-    U[👤 User] -->|chat / API call| UI[Experience Layer\nWeb UI · Telegram · CLI]
-    UI -->|HTTP / WebSocket| GW[API Gateway\nASP.NET Core]
-    GW -->|command| SS[Session Service]
-    GW -->|orchestrate| ORC[Orchestrator Service]
-    ORC -->|tool call| TR[Tool Registry]
-    ORC -->|LLM request| LLM[LLM Provider Adapter\nOpenAI · Azure OAI · Gemini]
-    TR -->|execute| W[Worker Service]
-    W -->|stream progress| SIG[SignalR Hub]
-    SIG -->|realtime update| UI
-    ORC -->|approval gate| APR[Approval Service]
-    APR -->|notify| UI
-    SS --- DB[(PostgreSQL)]
-    ORC --- DB
-    TR --- DB
-    W --- Q[(Queue / Redis)]
+graph TB
+    %% ── External Actors ───────────────────────────────────────────────
+    subgraph ACTORS["  External Actors"]
+        direction LR
+        HU["👤 Human User\n─────────────\nEnd-user / Operator"]
+        SA["🤖 System Agent\n─────────────\nScheduler · CI/CD · Webhook"]
+        ADM2["🛡️ Platform Admin\n─────────────\nOps / SRE Team"]
+    end
+
+    %% ── Harness Platform (System Boundary) ───────────────────────────
+    subgraph SYS["⬛  Harness Engineering Platform  [ System Boundary ]"]
+        direction TB
+
+        subgraph EDGE["  Edge & Auth Zone"]
+            direction LR
+            GW2["🔀 API Gateway\n+ Auth / Rate-limit"]
+            RT2["📡 Realtime Hub\n(SignalR / WS)"]
+        end
+
+        subgraph CORE["  Orchestration Core"]
+            direction LR
+            ORC2["🧠 Orchestrator\n(Plan · Dispatch · Gate)"]
+            TOOL["🔧 Tool Harness\n(Registry · Executor)"]
+            MEM2["💾 State & Memory\n(Session · History · Vector)"]
+        end
+
+        subgraph OBS["  Observability & Governance"]
+            direction LR
+            TRACE["🔭 Tracing\n(OTEL · Jaeger)"]
+            EVAL2["🧪 Eval Suite\n(Quality · Cost · Latency)"]
+            AUDIT["📋 Audit Log\n(Immutable · Policy Gate)"]
+        end
+    end
+
+    %% ── External Systems ──────────────────────────────────────────────
+    subgraph EXT["  External Systems & Providers"]
+        direction LR
+        LLM2["🤖 LLM Providers\nOpenAI · Azure OAI · Gemini"]
+        DS["🗄️ Enterprise Data\nPostgreSQL · S3 · Internal APIs"]
+        NOTIFY["📣 Notification Channel\nTelegram · Email · PagerDuty"]
+        IDPROV["🔐 Identity Provider\nOIDC / Azure AD / Auth0"]
+    end
+
+    %% ── Actor → Platform ──────────────────────────────────────────────
+    HU    -->|"HTTPS / WebSocket\n(chat · task submit)"| EDGE
+    SA    -->|"REST API · Webhook\n(automated trigger)"| EDGE
+    ADM2  -->|"Admin API · Dashboard\n(config · monitor)"| EDGE
+
+    %% ── Edge → Core ───────────────────────────────────────────────────
+    EDGE  -->|"Authenticated command\n+ session token"| CORE
+    CORE  -->|"Realtime progress event\n(SSE / WS push)"| RT2
+    RT2   -->|"Live update stream"| HU
+
+    %% ── Core → Observability ──────────────────────────────────────────
+    CORE  -->|"Span · metric · decision log"| OBS
+
+    %% ── Platform → External Systems ──────────────────────────────────
+    CORE  -->|"LLM API call\n(prompt · function spec)"| LLM2
+    CORE  -->|"Read / Write\n(structured + vector)"| DS
+    OBS   -->|"Alert · incident"| NOTIFY
+    EDGE  -->|"Token introspection\n(JWKS · userinfo)"| IDPROV
+
+    %% ── Styling ───────────────────────────────────────────────────────
+    classDef actorStyle  fill:#f0f9ff,stroke:#0ea5e9,color:#0c4a6e,font-weight:bold
+    classDef edgeStyle   fill:#ede9fe,stroke:#7c3aed,color:#2e1065
+    classDef coreStyle   fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef obsStyle    fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef extStyle    fill:#f1f5f9,stroke:#64748b,color:#1e293b,stroke-dasharray:5 4
+
+    class HU,SA,ADM2 actorStyle
+    class GW2,RT2 edgeStyle
+    class ORC2,TOOL,MEM2 coreStyle
+    class TRACE,EVAL2,AUDIT obsStyle
+    class LLM2,DS,NOTIFY,IDPROV extStyle
 ```
+
+### Giải thích các zone
+
+| Zone | Vai trò | Ranh giới bảo mật |
+|---|---|---|
+| **Edge & Auth** | Điểm vào duy nhất — xác thực, rate-limit, route | Public-facing, TLS terminated |
+| **Orchestration Core** | Não của hệ thống — plan, dispatch, tool call, state | Internal network, không expose trực tiếp |
+| **Observability & Governance** | Ghi lại mọi quyết định, đo chất lượng, policy gate | Read-only từ Core; write đến external alerting |
+| **External Systems** | LLM, database, notification, identity — nằm ngoài system boundary | Giao tiếp qua adapter, không hardcode credential |
 
 ---
 
