@@ -11,7 +11,7 @@ Mục tiêu: hiểu harness nằm ở đâu trong hệ thống lớn hơn, gồm
 
 - Là khung điều phối (orchestration framework) để AI làm việc ổn định trong môi trường production
 - Không chỉ là prompt engineering — là thiết kế hệ thống đầy đủ với state, policy, tool, memory, và eval
-- Trả lời các câu hỏi: input nào hợp lệ, task được phân loại ra sao, tool nào được gọi, lỗi nào tự retry, hành động nào cần approval, chất lượng đầu ra đo bằng gì
+- Trả lời các câu hỏi: input nào hợp lệ, task được phân loại ra sao, tool nào được gọi, lỗi nào tự retry, hành động nào cần approval, chất lượng đầu ra được đo ra sao
 - Giao điểm giữa: AI application architecture, distributed systems, platform engineering, observability, policy & safety, product workflow design
 
 ---
@@ -42,52 +42,76 @@ graph TD
 ## 4. Component Diagram
 
 ```mermaid
-graph LR
-    subgraph EXP[Experience Layer]
-        WEB[Web Chat UI]
-        TG[Telegram Bot]
-        ADM[Admin UI - Angular]
-        CLI[CLI Client]
+graph TB
+    %% ── Experience Layer ──────────────────────────────────────────
+    subgraph EXP["🖥️  Experience Layer"]
+        direction LR
+        WEB["🌐 Web Chat UI"]
+        TG["✈️  Telegram Bot"]
+        ADM["⚙️  Admin UI\n(Angular)"]
+        CLI["💻 CLI Client"]
     end
 
-    subgraph ORC[Orchestration Layer]
-        SC[Session Coordinator]
-        TR2[Task Router]
-        PL[Planner]
-        SM[State Machine]
-        APR2[Approval Manager]
+    %% ── Orchestration Layer ───────────────────────────────────────
+    subgraph ORC["🧠  Orchestration Layer"]
+        direction LR
+        SC["📋 Session\nCoordinator"]
+        TR2["🔀 Task\nRouter"]
+        PL["📐 Planner"]
+        SM["⚙️  State\nMachine"]
+        APR2["✅ Approval\nManager"]
     end
 
-    subgraph TH[Tool Harness Layer]
-        WS[Web Search Adapter]
-        FA[File Adapter]
-        GA[Git Adapter]
-        SHA[Shell Adapter]
-        DQ[DB Query Adapter]
-        IA[Internal API Adapter]
+    %% ── Tool Harness Layer ────────────────────────────────────────
+    subgraph TH["🔧  Tool Harness Layer"]
+        direction LR
+        WS["🔍 Web Search\nAdapter"]
+        FA["📁 File\nAdapter"]
+        GA["🐙 Git\nAdapter"]
+        SHA["🖥️  Shell\nAdapter"]
+        DQ["🗄️  DB Query\nAdapter"]
+        IA["🔌 Internal API\nAdapter"]
     end
 
-    subgraph MEM[State & Memory Layer]
-        CH[Conversation History]
-        TS[Task State]
-        LTM[Long-term Memory]
-        VEC[Vector Index]
-        AL[Audit Log]
+    %% ── State & Memory Layer ──────────────────────────────────────
+    subgraph MEM["💾  State & Memory Layer"]
+        direction LR
+        CH["💬 Conversation\nHistory"]
+        TS["📊 Task\nState"]
+        LTM["🧠 Long-term\nMemory"]
+        VEC["🔎 Vector\nIndex"]
+        AL["📝 Audit\nLog"]
     end
 
-    subgraph EVG[Evaluation & Governance Layer]
-        RT[Run Tracing]
-        CT[Cost Tracker]
-        LT[Latency Tracker]
-        EV[Eval Suite]
-        AB[Approval Boundary]
-        RP[Replay Harness]
+    %% ── Evaluation & Governance Layer ────────────────────────────
+    subgraph EVG["📊  Evaluation & Governance Layer"]
+        direction LR
+        RT["🔭 Run\nTracing"]
+        CT["💰 Cost\nTracker"]
+        LT["⏱️  Latency\nTracker"]
+        EV["🧪 Eval\nSuite"]
+        AB["🚧 Approval\nBoundary"]
+        RP["🔄 Replay\nHarness"]
     end
 
-    EXP --> ORC
-    ORC --> TH
-    ORC --> MEM
-    ORC --> EVG
+    %% ── Connections ───────────────────────────────────────────────
+    EXP  -->|"requests"| ORC
+    ORC  -->|"tool calls"| TH
+    ORC  -->|"read / write state"| MEM
+    ORC  -->|"trace / eval / gate"| EVG
+
+    %% ── Styling ───────────────────────────────────────────────────
+    classDef expStyle   fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+    classDef orcStyle   fill:#ede9fe,stroke:#7c3aed,color:#2e1065
+    classDef toolStyle  fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef memStyle   fill:#fef9c3,stroke:#ca8a04,color:#713f12
+    classDef evalStyle  fill:#ffe4e6,stroke:#e11d48,color:#4c0519
+
+    class WEB,TG,ADM,CLI expStyle
+    class SC,TR2,PL,SM,APR2 orcStyle
+    class WS,FA,GA,SHA,DQ,IA toolStyle
+    class CH,TS,LTM,VEC,AL memStyle
+    class RT,CT,LT,EV,AB,RP evalStyle
 ```
 
 ---
