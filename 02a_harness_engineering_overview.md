@@ -189,36 +189,43 @@ graph TB
 
 ## 5. Technology Stack Table
 
-| Layer | Component | Technology |
-|---|---|---|
-| Experience | Web Chat UI | Angular |
-| Experience | Realtime Push | SignalR (ASP.NET Core) |
-| Experience | Bot Channel | Telegram Bot API |
-| Orchestration | API Gateway | ASP.NET Core Web API |
-| Orchestration | Session & Run Service | ASP.NET Core + EF Core |
-| Orchestration | Background Worker | .NET BackgroundService |
-| Orchestration | Message Queue | Redis Streams / RabbitMQ / Kafka |
-| Tool Harness | Tool Registry | ASP.NET Core + JSON Schema validation |
-| Tool Harness | File / Object Storage | S3-compatible / Local |
-| State & Memory | Primary Database | PostgreSQL |
-| State & Memory | Cache & Pub/Sub | Redis |
-| State & Memory | Vector Search | pgvector / Qdrant |
-| Evaluation & Governance | Tracing | OpenTelemetry + Jaeger |
-| Evaluation & Governance | Metrics | Prometheus + Grafana |
-| LLM Provider | Adapter | OpenAI SDK / Azure OpenAI SDK |
+Bảng dưới tóm tắt **loại công nghệ** và **team chịu trách nhiệm** cho từng layer.  
+Chi tiết lựa chọn cụ thể (version, config) xem tài liệu `02b_infrastructure_setup.md`.
+
+| Layer | Vai trò chính | Công nghệ tiêu biểu | Owner |
+|---|---|---|---|
+| **Experience** | UI, realtime channel, bot | Angular, SignalR, Telegram Bot API | Frontend / Product |
+| **Orchestration** | API, session, background worker | ASP.NET Core, .NET BackgroundService | Backend |
+| **Tool Harness** | Adapter registry, tool execution | ASP.NET Core + JSON Schema validation | Backend / Platform |
+| **State & Memory** | Persistent state, cache, vector search | PostgreSQL, Redis, pgvector / Qdrant | Platform / Data |
+| **Evaluation & Governance** | Tracing, metrics, audit log | OpenTelemetry, Prometheus, Grafana | SRE / Platform |
+| **LLM Integration** | Model adapter, prompt dispatch | OpenAI SDK / Azure OpenAI SDK | AI/ML Engineer |
 
 ---
 
 ## 6. Khi nào dùng LLM, khi nào dùng code
 
-| Deterministic — dùng code | Non-deterministic — dùng LLM |
+> **Nguyên tắc cốt lõi:** Dùng code cho mọi thứ có thể xác định trước (deterministic). Dùng LLM chỉ khi cần reasoning, language understanding, hoặc judgment mà code không thể hardcode được.
+
+### Heuristic nhanh
+
+| Câu hỏi | Trả lời → dùng |
 |---|---|
-| Validate input schema | Phân loại task (classify intent) |
-| Enforce timeout và retry policy | Decompose task thành các bước |
-| Check permission và side effect level | Sinh execution plan |
-| Route task dựa trên rule rõ ràng | Tổng hợp kết quả từ nhiều tool |
-| Tính cost, latency, token count | Viết draft answer hoặc summary |
-| Ghi audit log | Đánh giá chất lượng output (model-graded eval) |
-| Trigger approval gate | Lý giải lý do fail cho người dùng |
-| Persist state vào database | Quyết định bước tiếp theo trong plan-and-execute |
-| Schema migration, index maintenance | Rút ra memory đáng lưu từ conversation |
+| Output có thể viết thành `if/else` hay rule rõ ràng không? | ✅ Code |
+| Output phụ thuộc vào ngữ nghĩa / ngữ cảnh tự nhiên không? | ✅ LLM |
+| Sai lầm ở đây có side effect nghiêm trọng không (xoá dữ liệu, gửi tiền...)? | ✅ Code kiểm soát, LLM chỉ đề xuất |
+| Cần kết quả 100% nhất quán và auditable không? | ✅ Code |
+
+### Ví dụ áp dụng trong hệ thống
+
+| Tình huống | Xử lý bằng |
+|---|---|
+| Validate input schema, enforce timeout, check permission | Code |
+| Route task theo rule cố định, tính cost/latency/token | Code |
+| Ghi audit log, persist state, trigger approval gate | Code |
+| Phân loại intent của user request | LLM |
+| Decompose task thành các bước, sinh execution plan | LLM |
+| Tổng hợp kết quả từ nhiều tool, viết summary cho người dùng | LLM |
+| Đánh giá chất lượng output (model-graded eval) | LLM |
+
+> Chi tiết decision framework cho từng use case xem `02c_llm_vs_code_decision_guide.md`.
