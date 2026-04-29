@@ -5,7 +5,9 @@ Tài liệu này tóm tắt một mô hình kiến trúc dữ liệu thực dụ
 ## Danh mục tài liệu
 
 - [README.md](README.md): kiến trúc dữ liệu, governance, RAG, OCR, và AI platform ở mức tổng thể
-- [02_harness_engineering_trien_khai_chi_tiet.md](02_harness_engineering_trien_khai_chi_tiet.md): bản triển khai chi tiết cho harness engineering, gồm orchestration, tool contract, approval, memory, observability, eval, và roadmap 90 ngày
+- [02a_harness_engineering_overview.md](02a_harness_engineering_overview.md): kiến trúc tổng quan harness engineering — system context diagram, component diagram, tech stack, LLM vs code decision table
+- [02b_harness_engineering_technical_spec.md](02b_harness_engineering_technical_spec.md): technical design specification — ERD, state machine, sequence diagrams, tool contract, error catalog, approval flow, memory comparison
+- [02c_harness_engineering_runbook.md](02c_harness_engineering_runbook.md): implementation runbook — roadmap 90 ngày, task table từng phase, checklist POC/Beta/Production, code structure, Angular screens, eval suite, common mistakes
 
 ## 1. Mục tiêu của kiến trúc
 
