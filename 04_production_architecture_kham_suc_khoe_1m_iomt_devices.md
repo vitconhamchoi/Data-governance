@@ -1,8 +1,8 @@
-# 04. Production Architecture cho DrCare ở quy mô 1M IoMT Devices
+# 04. Production Architecture cho hệ thống khám sức khỏe ở quy mô 1M IoMT Devices
 
 ## 1. Mục tiêu
 
-Tài liệu này mô tả kiến trúc production cho nền tảng **DrCare IoMT** trong bối cảnh hệ thống cần phục vụ khoảng **1 triệu thiết bị đo sức khỏe**.
+Tài liệu này mô tả kiến trúc production cho nền tảng **IoMT cho khám sức khỏe** trong bối cảnh hệ thống cần phục vụ khoảng **1 triệu thiết bị đo sức khỏe**.
 
 Mục tiêu của kiến trúc:
 
@@ -414,7 +414,7 @@ Một stack hợp lý có thể là:
 
 ## 10. Kết luận
 
-Mô hình IoMT cơ bản là đúng về logic, nhưng để vận hành production ở quy mô **1 triệu thiết bị**, hệ thống bắt buộc phải chuyển sang kiến trúc:
+Mô hình IoMT cơ bản là đúng về logic, nhưng để vận hành production cho bài toán **khám sức khỏe** ở quy mô **1 triệu thiết bị**, hệ thống bắt buộc phải chuyển sang kiến trúc:
 
 - **event-driven**,
 - **ingestion tách riêng**,
