@@ -1,4 +1,4 @@
-# 03. Technical Architecture — Nền tảng IoMT cho hệ thống khám sức khỏe quy mô lớn
+# 01. Technical Architecture — Nền tảng IoMT cho hệ thống khám sức khỏe quy mô lớn
 
 ## 1. Document Purpose
 
