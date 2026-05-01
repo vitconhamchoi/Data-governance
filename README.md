@@ -14,15 +14,10 @@ Repo này gom các tài liệu kiến trúc theo hướng **đọc từ tổng q
 - **Mục đích:** giải thích Harness Engineering là gì, gồm những thành phần nào, data model ra sao, state machine thế nào, và nên triển khai theo lộ trình nào
 - **Đọc khi:** cần thiết kế hoặc review hệ thống AI agent / orchestration / tool-calling ở mức production
 
-### 03. Kiến trúc kết nối IoMT cho hệ thống khám sức khỏe
-- **File:** `03_iomt_kien_truc_ket_noi_kham_suc_khoe.md`
-- **Mục đích:** mô tả mô hình kết nối thiết bị y tế, gateway, nền tảng trung tâm và các lớp sử dụng nghiệp vụ
-- **Đọc khi:** cần thiết kế mô hình IoMT cho khám sức khỏe, theo dõi tại nhà, bệnh mạn tính hoặc điểm đo cộng đồng
-
-### 04. Production architecture cho hệ thống khám sức khỏe ở quy mô 1M IoMT devices
-- **File:** `04_production_architecture_kham_suc_khoe_1m_iomt_devices.md`
-- **Mục đích:** đi sâu vào bài toán scale lớn, gồm ingestion, message backbone, processing, storage, HA/DR và nguyên tắc production
-- **Đọc khi:** cần đánh giá khả năng mở rộng lên quy mô hàng trăm nghìn đến hàng triệu thiết bị
+### 03. Kiến trúc IoMT cho hệ thống khám sức khỏe ở quy mô lớn
+- **File:** `03_iomt_kien_truc_kham_suc_khoe_quy_mo_lon.md`
+- **Mục đích:** mô tả kiến trúc IoMT theo hướng production-first cho bài toán khám sức khỏe, bao gồm kết nối thiết bị, ingestion, event backbone, processing, storage, alerting và HA/DR
+- **Đọc khi:** cần thiết kế hệ thống khám sức khỏe có khả năng mở rộng lên hàng triệu người dùng hoặc hàng triệu thiết bị
 
 ---
 
@@ -80,8 +75,7 @@ Nếu đọc theo đúng logic, nên đi theo thứ tự:
 
 1. **README.md** — hiểu khung dữ liệu và AI ở cấp doanh nghiệp
 2. **02_harness_engineering.md** — hiểu lớp điều phối cho AI production
-3. **03_iomt_kien_truc_ket_noi_kham_suc_khoe.md** — hiểu bài toán IoMT ở mức kết nối và nghiệp vụ
-4. **04_production_architecture_kham_suc_khoe_1m_iomt_devices.md** — hiểu bài toán scale lớn và production hardening
+3. **03_iomt_kien_truc_kham_suc_khoe_quy_mo_lon.md** — hiểu bài toán IoMT cho khám sức khỏe ở quy mô production lớn
 
 ---
 
