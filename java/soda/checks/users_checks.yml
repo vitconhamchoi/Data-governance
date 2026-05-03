@@ -1,0 +1,12 @@
+checks for users:
+  - row_count > 0:
+      name: Users table must not be empty
+  - missing_count(email) = 0:
+      name: Email must not be null
+  - missing_count(name) = 0:
+      name: Name must not be null
+  - duplicate_count(email) = 0:
+      name: Email must be unique
+  - invalid_count(email) = 0:
+      valid format: email
+      name: Email format must be valid

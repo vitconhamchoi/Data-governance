@@ -1,0 +1,29 @@
+version: 2
+
+sources:
+  - name: public
+    database: datagovernance
+    schema: public
+    tables:
+      - name: users
+        description: Raw users table with PII data
+        columns:
+          - name: id
+            description: Primary key
+          - name: name
+            description: User full name
+          - name: email
+            description: User email (PII)
+            tags: ["pii", "sensitive"]
+          - name: phone
+            description: User phone number (PII)
+            tags: ["pii", "sensitive"]
+      - name: orders
+        description: Raw orders table
+        columns:
+          - name: id
+            description: Primary key
+          - name: user_id
+            description: Foreign key to users
+          - name: amount
+            description: Order amount

@@ -1,0 +1,21 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: query-gateway
+  main:
+    web-application-type: servlet
+
+trino:
+  jdbc:
+    url: ${TRINO_URL:jdbc:trino://localhost:8080/postgresql/public}
+    user: ${TRINO_USER:admin}
+
+policy:
+  service:
+    url: ${POLICY_SERVICE_URL:http://localhost:8082}
+
+logging:
+  level:
+    com.datagovernance: INFO

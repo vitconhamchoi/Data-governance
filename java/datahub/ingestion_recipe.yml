@@ -1,0 +1,34 @@
+source:
+  type: postgres
+  config:
+    host_port: "postgres:5432"
+    database: datagovernance
+    username: dguser
+    password: dgpassword
+    include_tables: true
+    include_views: true
+    profiling:
+      enabled: true
+    table_pattern:
+      allow:
+        - "public.users"
+        - "public.orders"
+
+transformers:
+  - type: "simple_add_dataset_tags"
+    config:
+      tag_urns:
+        - "urn:li:tag:pii"
+      semantics: PATCH
+
+  - type: "pattern_add_dataset_schema_field_tags"
+    config:
+      tag_pattern:
+        rules:
+          ".*\\.email": ["urn:li:tag:pii", "urn:li:tag:sensitive"]
+          ".*\\.phone": ["urn:li:tag:pii", "urn:li:tag:sensitive"]
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://datahub-gms:8080"
