@@ -16,23 +16,19 @@ Repository này chứa các tài liệu kiến trúc kỹ thuật cấp enterpri
 
 Các kiến trúc trong repository này được xây dựng dựa trên các nguyên tắc cốt lõi sau:
 
-1. **Production-first (thiết kế cho vận hành thực tế)**
-   - Kiến trúc được thiết kế để chạy ổn định trong production ngay từ đầu
-   - Tích hợp observability, security, DR, và cost management từ giai đoạn thiết kế
-
-2. **Platform thinking, not point solution**
+1. **Platform thinking, not point solution**
    - Xây dựng nền tảng có khả năng tái sử dụng
    - Phục vụ nhiều use case thay vì giải quyết từng bài toán riêng lẻ
 
-3. **Data-first, not model-first**
+2. **Data-first, not model-first**
    - Chất lượng dữ liệu và governance là nền tảng
    - Model chỉ tạo giá trị khi dữ liệu đủ tin cậy
 
-4. **Separation of concerns**
+3. **Separation of concerns**
    - Tách biệt rõ ràng giữa các layer: ingestion, processing, storage, access
    - Read path và write path được thiết kế độc lập
 
-5. **Event-driven architecture**
+4. **Event-driven architecture**
    - Loose coupling thông qua event backbone
    - Async-by-default để đảm bảo khả năng scale
 
@@ -1030,11 +1026,10 @@ Các tài liệu kiến trúc trong repository này đại diện cho một **op
 
 ### 12.1. Các nguyên tắc xuyên suốt
 
-1. **Production-first**: Thiết kế cho vận hành thực tế, không phải demo
-2. **Platform thinking**: Xây dựng nền tảng tái sử dụng, không phải point solutions
-3. **Governance integrated**: Bảo mật, audit, quality từ đầu
-4. **Event-driven**: Loose coupling, scalability, traceability
-5. **Layered architecture**: Separation of concerns rõ ràng
+1. **Platform thinking**: Xây dựng nền tảng tái sử dụng, không phải point solutions
+2. **Governance integrated**: Bảo mật, audit, quality từ đầu
+3. **Event-driven**: Loose coupling, scalability, traceability
+4. **Layered architecture**: Separation of concerns rõ ràng
 
 ### 12.2. Khi nào nên áp dụng
 
