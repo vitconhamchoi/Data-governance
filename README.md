@@ -100,81 +100,21 @@ flowchart TB
 
 ---
 
-## 2. Tài liệu kiến trúc
+## 2. Kiến trúc nền tảng (Data + AI)
 
-Repository bao gồm các tài liệu kiến trúc chính sau:
 
-### 2.1. Enterprise Data & AI Platform Architecture
+### 2.1. Mục tiêu kiến trúc
 
-**File**: [README.md](README.md) (tài liệu này)
+- Một nền tảng **governance-first** để dữ liệu đủ tin cậy cho vận hành, phân tích và AI.
+- Một lớp **AI enablement** (RAG/Agents) dùng lại cùng metadata/permissions/audit của data platform.
+- Một lớp **operations** (observability + cost + policy) để AI chạy production, không phải demo.
 
-**Nội dung chính**:
-- Kiến trúc tổng thể cho nền tảng dữ liệu và AI cấp doanh nghiệp
-- Nguyên tắc thiết kế data-first
-- Kiến trúc Data Lakehouse với các lớp maturity
-- Tích hợp BI, ML và GenAI trên cùng một nền tảng
-- Data governance và security từ đầu
-- Production readiness requirements
+### 2.2. Quyết định then chốt (tóm tắt)
 
-**Khi nào sử dụng**:
-- Thiết kế data platform cho enterprise
-- Xây dựng nền tảng thống nhất cho BI, Analytics, ML và AI
-- Cần governance và compliance chặt chẽ
-- Tích hợp nhiều nguồn dữ liệu phân tán
-
-### 2.2. IoMT Platform Technical Architecture
-
-**File**: [01_iomt_platform_technical_architecture.md](01_iomt_platform_technical_architecture.md)
-
-**Nội dung chính**:
-- Kiến trúc kỹ thuật cho nền tảng IoMT (Internet of Medical Things)
-- Device connectivity và telemetry ingestion pipeline
-- Event-driven architecture cho real-time alerting
-- Time-series data architecture
-- High availability, disaster recovery và security
-- Capacity planning và scaling strategy
-
-**Khi nào sử dụng**:
-- Xây dựng hệ thống IoT/IoMT quy mô lớn (hàng triệu thiết bị)
-- Yêu cầu real-time/near-real-time processing
-- Dữ liệu time-series với write-heavy workload
-- Cần high availability và multi-region deployment
-- Compliance với các quy định y tế và privacy
-
-**Điểm nổi bật kỹ thuật**:
-- Dual ingress (MQTT + HTTPS) cho flexible device connectivity
-- Event backbone làm backbone cho loose coupling
-- Separate operational store và time-series store
-- At-least-once delivery với idempotent processing
-- Multi-tier storage: hot (time-series DB) → cold (object storage)
-
-### 2.3. Harness Engineering for Production AI Systems
-
-**File**: [02_harness_engineering.md](02_harness_engineering.md)
-
-**Nội dung chính**:
-- Orchestration framework cho AI agents trong production
-- Tool execution với schema, timeout, retry và guardrails
-- Memory architecture: conversation, working và long-term memory
-- Approval workflow cho sensitive actions
-- Observability: tracing, metrics, cost tracking
-- State machine và resume capability
-
-**Khi nào sử dụng**:
-- Triển khai AI agents hoặc GenAI applications vào production
-- Cần orchestration cho multi-step AI workflows
-- Yêu cầu approval và policy enforcement
-- Cần audit trail và compliance tracking
-- Cost management và quality evaluation
-
-**Điểm nổi bật kỹ thuật**:
-- Session/Run/Step model cho tracking
-- Approval gates cho risky operations
-- State persistence cho resume capability
-- Tool harness với schema validation
-- Evaluation suite cho quality regression detection
-
----
+- **Lakehouse nhiều zone** (Raw→Standardized→Curated→Trusted) để trace/replay/quality-gates.
+- **Event backbone** (Kafka/Pulsar) để decouple ingestion/processing/consumption và hỗ trợ near-real-time.
+- **Governance như control plane**: catalog + lineage + IAM + audit là bắt buộc, không “làm sau”.
+- **AI chạy trên nền dữ liệu có kiểm soát**: cùng một policy engine cho SQL/API và cho LLM tools.
 
 ## 3. Chi tiết kỹ thuật theo domain
 
@@ -345,6 +285,22 @@ def process_event(event):
 ```
 
 ### 3.3. AI & ML Platform Architecture
+
+
+#### 3.3.0. AI Integration (RAG + Agents) — điểm ăn tiền
+
+Nếu chỉ “data platform” thì câu chuyện dừng ở ETL/BI. Giá trị mới nằm ở việc biến dữ liệu đã govern thành **knowledge + actions**:
+
+- **RAG/Knowledge Base**: ingest tài liệu, hợp đồng, hướng dẫn, ticket, SOP → chunking → embedding → vector index.
+- **Agents/Tools**: LLM không được query trực tiếp mọi thứ; bắt buộc đi qua tool layer (SQL runner, search, ticketing, workflow) có **schema + timeout + approval**.
+- **Policy & audit end-to-end**: cùng một `principal`/`tenant`/`purpose` áp vào cả data access và tool execution; mọi prompt/tool call đều log để truy vết.
+
+Mẫu triển khai tối thiểu (production):
+
+1. **Retrieval boundary**: KB chỉ publish dữ liệu đã được classify (PII/PHI), redact và có ACL.
+2. **Tool boundary**: tool list theo role; tool có risk level; action nguy hiểm phải approval.
+3. **Evaluation boundary**: regression tests cho prompts/agents, đo hallucination, latency, cost.
+
 
 #### 3.3.1. Unified AI Platform Design
 
