@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: datagovernance-api-config
+  namespace: datagovernance
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  ConnectionStrings__DefaultConnection: "Host=postgres-service;Database=datagovernance;Username=postgres;Password=postgres"
+  ConnectionStrings__Redis: "redis-service:6379"
+  ConnectionStrings__Kafka: "kafka-service:9092"
+  Observability__ServiceName: "DataGovernance.API"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: datagovernance-api-secrets
+  namespace: datagovernance
+type: Opaque
+stringData:
+  jwt-secret: "your-secret-key-change-in-production-min-32-chars"
+  database-password: "postgres"
+  openai-api-key: ""

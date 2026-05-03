@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/Core/">
+    <Project Path="src/Core/DataGovernance.Application/DataGovernance.Application.csproj" />
+    <Project Path="src/Core/DataGovernance.Contracts/DataGovernance.Contracts.csproj" />
+    <Project Path="src/Core/DataGovernance.Domain/DataGovernance.Domain.csproj" />
+  </Folder>
+  <Folder Name="/src/Infrastructure/">
+    <Project Path="src/Infrastructure/DataGovernance.Infrastructure.Cache/DataGovernance.Infrastructure.Cache.csproj" />
+    <Project Path="src/Infrastructure/DataGovernance.Infrastructure.Data/DataGovernance.Infrastructure.Data.csproj" />
+    <Project Path="src/Infrastructure/DataGovernance.Infrastructure.Messaging/DataGovernance.Infrastructure.Messaging.csproj" />
+  </Folder>
+  <Folder Name="/src/Services/">
+    <Project Path="src/Services/DataGovernance.API/DataGovernance.API.csproj" />
+  </Folder>
+</Solution>
