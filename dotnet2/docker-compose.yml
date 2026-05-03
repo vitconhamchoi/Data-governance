@@ -154,7 +154,7 @@ services:
       - data-governance
 
   airflow-webserver:
-    image: apache/airflow:2.7.1-python3.11
+    image: apache/airflow:2.11.1-python3.11
     container_name: airflow-webserver
     depends_on:
       - airflow-postgres
@@ -179,7 +179,7 @@ services:
       - data-governance
 
   airflow-scheduler:
-    image: apache/airflow:2.7.1-python3.11
+    image: apache/airflow:2.11.1-python3.11
     container_name: airflow-scheduler
     depends_on:
       - airflow-postgres

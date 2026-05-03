@@ -106,7 +106,7 @@ curl -X POST http://localhost:5002/api/query \
 - **Backend**: .NET 8 (ASP.NET Core)
 - **Database**: PostgreSQL 15
 - **Query Engine**: Trino
-- **Orchestration**: Apache Airflow 2.7
+- **Orchestration**: Apache Airflow 2.11.1
 - **Transformations**: dbt
 - **Metadata**: DataHub OSS
 - **Storage**: MinIO

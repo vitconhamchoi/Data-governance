@@ -186,7 +186,7 @@ dotnet2/
 - PostgreSQL 15 (OLTP database)
 - Trino (distributed query engine)
 - DataHub OSS (metadata catalog)
-- Apache Airflow 2.7 (orchestration)
+- Apache Airflow 2.11.1 (orchestration)
 - dbt (transformations)
 - Soda Core (data quality)
 

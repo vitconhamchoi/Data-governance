@@ -246,7 +246,7 @@ dbt models → DataHub GMS → Elasticsearch → DataHub UI
 - **Database**: PostgreSQL 15
 - **ORM**: Entity Framework Core 8
 - **Query Engine**: Trino (latest)
-- **Orchestration**: Apache Airflow 2.7
+- **Orchestration**: Apache Airflow 2.11.1
 - **Transformation**: dbt
 - **Metadata**: DataHub OSS
 - **Storage**: MinIO
