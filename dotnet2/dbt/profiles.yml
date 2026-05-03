@@ -1,0 +1,13 @@
+datagovernance:
+  outputs:
+    dev:
+      type: postgres
+      host: postgres
+      user: datauser
+      password: datapass123
+      port: 5432
+      dbname: datagovernance
+      schema: public
+      threads: 4
+      keepalives_idle: 0
+  target: dev

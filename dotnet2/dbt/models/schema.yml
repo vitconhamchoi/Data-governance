@@ -1,0 +1,37 @@
+version: 2
+
+sources:
+  - name: public
+    database: datagovernance
+    schema: public
+    tables:
+      - name: users
+        description: "User information with PII data"
+        columns:
+          - name: id
+            description: "Primary key"
+          - name: email
+            description: "User email - PII"
+            tags: ['pii', 'sensitive']
+          - name: phone
+            description: "User phone - PII"
+            tags: ['pii', 'sensitive']
+
+      - name: orders
+        description: "Order transactions"
+        columns:
+          - name: id
+            description: "Primary key"
+          - name: user_id
+            description: "Foreign key to users"
+
+models:
+  - name: users_with_orders
+    description: "Users with aggregated order information"
+    columns:
+      - name: email
+        description: "User email - PII"
+        tags: ['pii', 'sensitive']
+      - name: phone
+        description: "User phone - PII"
+        tags: ['pii', 'sensitive']
