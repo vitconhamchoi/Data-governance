@@ -16,9 +16,9 @@ Repository này chứa các tài liệu kiến trúc kỹ thuật cấp enterpri
 
 Các kiến trúc trong repository này được xây dựng dựa trên các nguyên tắc cốt lõi sau:
 
-1. **Production-first, not demo-first**
-   - Kiến trúc phải được thiết kế cho production từ đầu
-   - Bao gồm observability, security, DR, cost management từ giai đoạn thiết kế
+1. **Production-first (thiết kế cho vận hành thực tế)**
+   - Kiến trúc được thiết kế để chạy ổn định trong production ngay từ đầu
+   - Tích hợp observability, security, DR, và cost management từ giai đoạn thiết kế
 
 2. **Platform thinking, not point solution**
    - Xây dựng nền tảng có khả năng tái sử dụng
