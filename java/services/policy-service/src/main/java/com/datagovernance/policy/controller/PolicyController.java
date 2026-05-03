@@ -37,6 +37,9 @@ public class PolicyController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deletePolicy(@PathVariable Long id) {
+        if (!policyService.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
         policyService.deletePolicy(id);
         return ResponseEntity.noContent().build();
     }

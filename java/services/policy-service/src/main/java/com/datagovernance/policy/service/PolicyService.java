@@ -32,4 +32,8 @@ public class PolicyService {
     public List<Policy> getPoliciesByRole(String role) {
         return policyRepository.findByRole(role);
     }
+
+    public boolean existsById(Long id) {
+        return policyRepository.existsById(id);
+    }
 }

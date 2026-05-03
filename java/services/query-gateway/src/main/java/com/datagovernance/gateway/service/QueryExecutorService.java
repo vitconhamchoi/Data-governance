@@ -25,6 +25,8 @@ public class QueryExecutorService {
     private final MaskingService maskingService;
 
     public QueryResponse executeQuery(String sql, String role) throws SQLException {
+        validateQuery(sql);
+
         List<PolicyDto> policies = policyClient.getPoliciesForRole(role);
         log.info("Executing query for role={} with {} applicable policies", role, policies.size());
 
@@ -65,5 +67,16 @@ public class QueryExecutorService {
                 .role(role)
                 .masked(!policies.isEmpty())
                 .build();
+    }
+
+    /** Reject any statement that is not a read-only SELECT. */
+    private void validateQuery(String sql) throws SQLException {
+        if (sql == null || sql.isBlank()) {
+            throw new SQLException("Query must not be empty");
+        }
+        String normalized = sql.stripLeading().toUpperCase();
+        if (!normalized.startsWith("SELECT") && !normalized.startsWith("WITH")) {
+            throw new SQLException("Only SELECT queries are permitted");
+        }
     }
 }

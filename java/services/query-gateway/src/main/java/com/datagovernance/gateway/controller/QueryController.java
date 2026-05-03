@@ -29,7 +29,7 @@ public class QueryController {
             log.error("Query execution failed: {}", e.getMessage());
             return ResponseEntity.badRequest().body(Map.of(
                 "error", "Query execution failed",
-                "message", e.getMessage()
+                "message", "An error occurred while executing the query. Please check your SQL syntax."
             ));
         }
     }

@@ -3,6 +3,7 @@ package com.datagovernance.gateway.service;
 import com.datagovernance.gateway.model.PolicyDto;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -61,7 +62,7 @@ public class MaskingService {
     public Map<String, Object> applyPolicies(Map<String, Object> row, List<PolicyDto> policies) {
         if (policies == null || policies.isEmpty()) return row;
 
-        for (String col : row.keySet()) {
+        for (String col : new ArrayList<>(row.keySet())) {
             if (shouldDeny(col, policies)) {
                 row.put(col, "[DENIED]");
             } else {
