@@ -1,0 +1,135 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: dg-postgres
+    environment:
+      POSTGRES_USER: dguser
+      POSTGRES_PASSWORD: dgpassword
+      POSTGRES_DB: datagovernance
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dguser -d datagovernance"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dg-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: dg-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dg-network
+
+  trino:
+    image: trinodb/trino:435
+    container_name: dg-trino
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./trino/etc:/etc/trino
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dg-network
+
+  airflow:
+    image: apache/airflow:2.8.1
+    container_name: dg-airflow
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://dguser:dgpassword@postgres:5432/datagovernance
+      AIRFLOW__CORE__FERNET_KEY: "ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg="
+      AIRFLOW__WEBSERVER__SECRET_KEY: "data-governance-secret"
+      AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: admin
+      _AIRFLOW_WWW_USER_PASSWORD: admin123
+      _AIRFLOW_WWW_USER_ROLE: Admin
+      _AIRFLOW_WWW_USER_EMAIL: admin@example.com
+      _AIRFLOW_WWW_USER_FIRSTNAME: Admin
+      _AIRFLOW_WWW_USER_LASTNAME: User
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./airflow/dags:/opt/airflow/dags
+      - ./airflow/logs:/opt/airflow/logs
+      - ./data:/opt/airflow/data
+      - ./dbt:/opt/airflow/dbt
+      - ./soda:/opt/airflow/soda
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      bash -c "
+        airflow db migrate &&
+        airflow users create --username admin --password admin123 --firstname Admin --lastname User --role Admin --email admin@example.com || true &&
+        airflow webserver &
+        airflow scheduler
+      "
+    networks:
+      - dg-network
+
+  policy-service:
+    build:
+      context: ./services/policy-service
+      dockerfile: Dockerfile
+    container_name: dg-policy-service
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/datagovernance
+      SPRING_DATASOURCE_USERNAME: dguser
+      SPRING_DATASOURCE_PASSWORD: dgpassword
+    ports:
+      - "8082:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - dg-network
+
+  query-gateway:
+    build:
+      context: ./services/query-gateway
+      dockerfile: Dockerfile
+    container_name: dg-query-gateway
+    environment:
+      TRINO_URL: jdbc:trino://trino:8080/postgresql/public
+      TRINO_USER: admin
+      POLICY_SERVICE_URL: http://policy-service:8080
+    ports:
+      - "8083:8080"
+    depends_on:
+      - trino
+      - policy-service
+    networks:
+      - dg-network
+
+volumes:
+  postgres_data:
+  minio_data:
+
+networks:
+  dg-network:
+    driver: bridge

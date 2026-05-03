@@ -1,0 +1,9 @@
+checks for orders:
+  - row_count > 0:
+      name: Orders table must not be empty
+  - missing_count(user_id) = 0:
+      name: user_id must not be null
+  - missing_count(amount) = 0:
+      name: amount must not be null
+  - min(amount) > 0:
+      name: Order amount must be positive

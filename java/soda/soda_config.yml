@@ -1,0 +1,9 @@
+data_sources:
+  postgres_default:
+    type: postgres
+    host: postgres
+    port: 5432
+    username: dguser
+    password: dgpassword
+    database: datagovernance
+    schema: public
