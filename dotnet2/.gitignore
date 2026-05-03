@@ -1,0 +1,25 @@
+# Docker volumes
+postgres_data/
+minio_data/
+datahub_mysql_data/
+datahub_es_data/
+airflow_postgres_data/
+
+# Airflow
+airflow/logs/
+airflow/__pycache__/
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# .NET
+services/**/*.user
+services/**/bin/
+services/**/obj/
+services/**/.vs/
+
+# OS
+.DS_Store
+Thumbs.db
