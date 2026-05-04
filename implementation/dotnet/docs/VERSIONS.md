@@ -55,9 +55,10 @@ This document specifies the exact versions of all technologies, frameworks, and 
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| Microsoft.SemanticKernel | 1.3.0 | LLM orchestration |
+| Microsoft.Extensions.AI | 9.0.1-preview.1 | Unified AI abstraction layer |
+| Microsoft.Extensions.AI.OpenAI | 9.0.1-preview.1 | OpenAI integration for Agent Framework |
+| Azure.AI.OpenAI | 2.1.0 | Azure OpenAI service client |
 | Microsoft.ML | 3.0.1 | Machine learning |
-| Azure.AI.OpenAI | 1.0.0-beta.12 | OpenAI integration |
 | Pgvector.EntityFrameworkCore | 0.1.0 | Vector similarity search |
 
 ### Observability

@@ -6,13 +6,13 @@ This directory contains the .NET implementation of the Data Governance & AI Plat
 
 The .NET implementation provides a production-ready, enterprise-grade implementation of the platform architecture using modern .NET technologies (.NET 8.0+).
 
-## AI Harness Engineering (.NET 8)
+## AI Harness Engineering (.NET 8+)
 
 The `DataGovernance.API` service now includes a production-focused AI Harness foundation aligned with `02_harness_engineering.md`:
 
 - Domain model for `Session`, `Message`, `Run`, `RunStep`, `Approval`, `Memory`, `ToolDefinition`
 - Run lifecycle/state-machine orchestration with resume support
-- Semantic Kernel integration (OpenAI + Anthropic configuration)
+- **Microsoft.Extensions.AI integration** (OpenAI + Anthropic configuration) - migrated from Semantic Kernel
 - Dynamic tool harness with schema metadata, permission check, timeout/retry/circuit-breaker
 - Minimal API endpoints:
   - `POST /api/runs`
@@ -108,9 +108,9 @@ dotnet/
 - **Rebus**: Simple and lean service bus
 
 ### AI & ML
-- **Microsoft.SemanticKernel**: LLM orchestration framework
+- **Microsoft.Extensions.AI**: Unified AI abstraction layer for .NET
+- **Azure.AI.OpenAI**: OpenAI integration with Agent Framework support
 - **Microsoft.ML**: Machine learning framework
-- **LangChain.NET**: .NET port of LangChain
 - **Pgvector.EntityFrameworkCore**: Vector similarity search
 
 ### Observability
@@ -216,7 +216,7 @@ dotnet test /p:CollectCoverage=true /p:CoverageReportFormat=opencover
 - Scheduled jobs with Quartz.NET
 
 #### Agent Service
-- AI agent orchestration with Semantic Kernel
+- AI agent orchestration with Microsoft.Extensions.AI Agent Framework
 - Tool harness for LLM interactions
 - Session and run tracking
 - Approval workflow engine

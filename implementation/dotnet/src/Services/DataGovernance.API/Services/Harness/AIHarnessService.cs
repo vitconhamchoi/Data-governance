@@ -3,7 +3,7 @@ using DataGovernance.Application.Harness.Contracts;
 using DataGovernance.Domain.Entities.Harness;
 using DataGovernance.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.SemanticKernel.ChatCompletion;
+using Microsoft.Extensions.AI;
 using System.Text.RegularExpressions;
 
 namespace DataGovernance.API.Services.Harness;
@@ -11,18 +11,18 @@ namespace DataGovernance.API.Services.Harness;
 public sealed class AIHarnessService : IAIHarnessService
 {
     private readonly DataGovernanceDbContext _dbContext;
-    private readonly IKernelFactory _kernelFactory;
+    private readonly IChatClientFactory _chatClientFactory;
     private readonly IToolHarnessService _toolHarnessService;
     private readonly ILogger<AIHarnessService> _logger;
 
     public AIHarnessService(
         DataGovernanceDbContext dbContext,
-        IKernelFactory kernelFactory,
+        IChatClientFactory chatClientFactory,
         IToolHarnessService toolHarnessService,
         ILogger<AIHarnessService> logger)
     {
         _dbContext = dbContext;
-        _kernelFactory = kernelFactory;
+        _chatClientFactory = chatClientFactory;
         _toolHarnessService = toolHarnessService;
         _logger = logger;
     }
@@ -179,15 +179,16 @@ public sealed class AIHarnessService : IAIHarnessService
             }
             else
             {
-                var kernel = _kernelFactory.CreateKernel(run.Provider, run.Model);
-                var chatService = kernel.GetRequiredService<IChatCompletionService>();
+                var chatClient = _chatClientFactory.CreateChatClient(run.Provider, run.Model);
 
-                var history = new ChatHistory();
-                history.AddSystemMessage("You are an AI harness executor. Respond concisely.");
-                history.AddUserMessage(run.Input);
+                var messages = new List<ChatMessage>
+                {
+                    new(ChatRole.System, "You are an AI harness executor. Respond concisely."),
+                    new(ChatRole.User, run.Input)
+                };
 
-                var response = await chatService.GetChatMessageContentAsync(history, kernel: kernel, cancellationToken: cancellationToken);
-                executionOutput = response.Content ?? string.Empty;
+                var response = await chatClient.CompleteAsync(messages, cancellationToken: cancellationToken);
+                executionOutput = response.Message.Text ?? string.Empty;
 
                 AddStep(run, stepNo++, "model_execution", null, RunStepStatus.Completed, run.Input, executionOutput, null);
             }
