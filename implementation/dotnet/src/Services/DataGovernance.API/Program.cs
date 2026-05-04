@@ -45,7 +45,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddMediatR(typeof(Program).Assembly);
 
-builder.Services.AddSingleton<IKernelFactory, KernelFactory>();
+builder.Services.AddSingleton<IChatClientFactory, ChatClientFactory>();
 builder.Services.AddScoped<IAIHarnessService, AIHarnessService>();
 builder.Services.AddScoped<IToolHarnessService, ToolHarnessService>();
 builder.Services.AddScoped<IToolHandler, EchoToolHandler>();
