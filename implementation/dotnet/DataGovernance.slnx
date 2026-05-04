@@ -13,4 +13,9 @@
   <Folder Name="/src/Services/">
     <Project Path="src/Services/DataGovernance.API/DataGovernance.API.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Folder Name="/tests/UnitTests/">
+      <Project Path="tests/UnitTests/DataGovernance.Harness.UnitTests/DataGovernance.Harness.UnitTests.csproj" />
+    </Folder>
+  </Folder>
 </Solution>

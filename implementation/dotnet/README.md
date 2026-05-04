@@ -6,6 +6,37 @@ This directory contains the .NET implementation of the Data Governance & AI Plat
 
 The .NET implementation provides a production-ready, enterprise-grade implementation of the platform architecture using modern .NET technologies (.NET 8.0+).
 
+## AI Harness Engineering (.NET 8)
+
+The `DataGovernance.API` service now includes a production-focused AI Harness foundation aligned with `02_harness_engineering.md`:
+
+- Domain model for `Session`, `Message`, `Run`, `RunStep`, `Approval`, `Memory`, `ToolDefinition`
+- Run lifecycle/state-machine orchestration with resume support
+- Semantic Kernel integration (OpenAI + Anthropic configuration)
+- Dynamic tool harness with schema metadata, permission check, timeout/retry/circuit-breaker
+- Minimal API endpoints:
+  - `POST /api/runs`
+  - `GET /api/runs/{id}`
+  - `GET /api/runs/{id}/steps`
+  - `GET /api/runs/{id}/events` (SSE)
+  - `POST /api/tools/register`
+
+### Quick start for Harness
+
+1. Start dependencies:
+   ```bash
+   cd deployment/docker
+   docker-compose up -d postgres redis
+   ```
+2. Configure API keys in `src/Services/DataGovernance.API/appsettings.json` under `Harness:OpenAI` / `Harness:Anthropic` (or via environment variables).
+3. Run API:
+   ```bash
+   cd src/Services/DataGovernance.API
+   dotnet run
+   ```
+4. Call APIs with tenant header:
+   - `X-Tenant-Id: <tenant-guid>`
+
 ## Architecture
 
 The implementation follows the Clean Architecture pattern with clear separation of concerns:
