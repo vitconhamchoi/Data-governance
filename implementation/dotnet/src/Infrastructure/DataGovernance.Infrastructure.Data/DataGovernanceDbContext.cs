@@ -1,4 +1,5 @@
 using DataGovernance.Domain.Entities;
+using DataGovernance.Domain.Entities.Harness;
 using Microsoft.EntityFrameworkCore;
 
 namespace DataGovernance.Infrastructure.Data;
@@ -20,6 +21,13 @@ public class DataGovernanceDbContext : DbContext
     public DbSet<GovernancePolicy> GovernancePolicies { get; set; } = null!;
     public DbSet<PolicyViolation> PolicyViolations { get; set; } = null!;
     public DbSet<AuditLog> AuditLogs { get; set; } = null!;
+    public DbSet<Session> Sessions { get; set; } = null!;
+    public DbSet<Message> Messages { get; set; } = null!;
+    public DbSet<Run> Runs { get; set; } = null!;
+    public DbSet<RunStep> RunSteps { get; set; } = null!;
+    public DbSet<Approval> Approvals { get; set; } = null!;
+    public DbSet<Memory> Memories { get; set; } = null!;
+    public DbSet<ToolDefinition> ToolDefinitions { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -162,6 +170,126 @@ public class DataGovernanceDbContext : DbContext
 
             // Partition by CreatedAt for performance (time-series data)
             // Note: Actual partitioning would be done via migrations
+        });
+
+        modelBuilder.Entity<Session>(entity =>
+        {
+            entity.ToTable("sessions");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TenantId);
+            entity.HasIndex(e => e.Status);
+
+            entity.Property(e => e.Channel).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.Title).HasMaxLength(256);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(50);
+        });
+
+        modelBuilder.Entity<Message>(entity =>
+        {
+            entity.ToTable("messages");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TenantId);
+            entity.HasIndex(e => e.SessionId);
+            entity.HasIndex(e => e.Role);
+
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.Role).HasConversion<string>().HasMaxLength(50);
+
+            entity.HasOne(e => e.Session)
+                .WithMany(e => e.Messages)
+                .HasForeignKey(e => e.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Run>(entity =>
+        {
+            entity.ToTable("runs");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TenantId);
+            entity.HasIndex(e => e.SessionId);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => new { e.TenantId, e.Status });
+
+            entity.Property(e => e.TaskType).HasMaxLength(100);
+            entity.Property(e => e.Strategy).HasMaxLength(100);
+            entity.Property(e => e.Model).HasMaxLength(100);
+            entity.Property(e => e.Provider).HasMaxLength(50);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(50);
+            entity.Property(e => e.CostUsd).HasPrecision(18, 6);
+
+            entity.HasOne(e => e.Session)
+                .WithMany(e => e.Runs)
+                .HasForeignKey(e => e.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RunStep>(entity =>
+        {
+            entity.ToTable("run_steps");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TenantId);
+            entity.HasIndex(e => e.RunId);
+            entity.HasIndex(e => new { e.RunId, e.StepNo }).IsUnique();
+            entity.HasIndex(e => e.Status);
+
+            entity.Property(e => e.StepType).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.ToolName).HasMaxLength(200);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(50);
+            entity.Property(e => e.ErrorCode).HasMaxLength(100);
+
+            entity.HasOne(e => e.Run)
+                .WithMany(e => e.Steps)
+                .HasForeignKey(e => e.RunId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Approval>(entity =>
+        {
+            entity.ToTable("approvals");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TenantId);
+            entity.HasIndex(e => e.RunId);
+            entity.HasIndex(e => e.Status);
+
+            entity.Property(e => e.ActionType).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.RequestedBy).HasMaxLength(256);
+            entity.Property(e => e.ResolvedBy).HasMaxLength(256);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(50);
+
+            entity.HasOne(e => e.Run)
+                .WithMany(e => e.Approvals)
+                .HasForeignKey(e => e.RunId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Memory>(entity =>
+        {
+            entity.ToTable("memories");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TenantId);
+            entity.HasIndex(e => new { e.Scope, e.ScopeId });
+            entity.HasIndex(e => e.MemoryType);
+
+            entity.Property(e => e.Scope).IsRequired().HasMaxLength(100);
+            entity.Property(e => e.MemoryType).HasConversion<string>().HasMaxLength(50);
+            entity.Property(e => e.Content).IsRequired();
+            entity.Property(e => e.Metadata).HasColumnType("jsonb");
+        });
+
+        modelBuilder.Entity<ToolDefinition>(entity =>
+        {
+            entity.ToTable("tool_definitions");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.TenantId);
+            entity.HasIndex(e => new { e.TenantId, e.Name }).IsUnique();
+            entity.HasIndex(e => e.SideEffectLevel);
+
+            entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Description).HasMaxLength(2000);
+            entity.Property(e => e.InputSchema).HasColumnType("jsonb");
+            entity.Property(e => e.OutputSchema).HasColumnType("jsonb");
+            entity.Property(e => e.SideEffectLevel).HasConversion<string>().HasMaxLength(50);
+            entity.Property(e => e.PermissionLevel).HasConversion<string>().HasMaxLength(50);
         });
     }
 
