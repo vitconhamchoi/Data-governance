@@ -35,8 +35,6 @@ public static class RunEndpoints
                         body.Strategy),
                     cancellationToken);
 
-                _ = Task.Run(async () => await harnessService.ProcessRunAsync(tenantId, run.Id, CancellationToken.None), CancellationToken.None);
-
                 return Results.Created($"/api/runs/{run.Id}", run);
             })
             .WithName("CreateRun");

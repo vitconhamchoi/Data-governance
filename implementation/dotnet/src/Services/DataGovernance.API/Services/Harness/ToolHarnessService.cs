@@ -6,6 +6,7 @@ using DataGovernance.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Polly;
+using System.Collections.Concurrent;
 
 namespace DataGovernance.API.Services.Harness;
 
@@ -14,6 +15,7 @@ public sealed class ToolHarnessService : IToolHarnessService
     private readonly DataGovernanceDbContext _dbContext;
     private readonly IReadOnlyDictionary<string, IToolHandler> _toolHandlers;
     private readonly HarnessOptions _options;
+    private readonly ConcurrentDictionary<string, AsyncPolicy<string>> _circuitBreakers = new(StringComparer.OrdinalIgnoreCase);
 
     public ToolHarnessService(
         DataGovernanceDbContext dbContext,
@@ -85,9 +87,11 @@ public sealed class ToolHarnessService : IToolHarnessService
             : definition.TimeoutSeconds;
 
         var timeoutPolicy = Policy.TimeoutAsync<string>(TimeSpan.FromSeconds(timeoutSeconds));
-        var circuitBreaker = Policy<string>
-            .Handle<Exception>()
-            .CircuitBreakerAsync(_options.Resilience.CircuitBreakerFailureCount, TimeSpan.FromSeconds(_options.Resilience.CircuitBreakerBreakSeconds));
+        var circuitBreaker = _circuitBreakers.GetOrAdd(
+            definition.Name,
+            _ => Policy<string>
+                .Handle<Exception>()
+                .CircuitBreakerAsync(_options.Resilience.CircuitBreakerFailureCount, TimeSpan.FromSeconds(_options.Resilience.CircuitBreakerBreakSeconds)));
         var retryPolicy = Policy<string>
             .Handle<Exception>()
             .WaitAndRetryAsync(Math.Max(0, definition.RetryCount), attempt => TimeSpan.FromMilliseconds(200 * attempt));

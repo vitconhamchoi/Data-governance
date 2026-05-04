@@ -29,6 +29,7 @@ The `DataGovernance.API` service now includes a production-focused AI Harness fo
    docker-compose up -d postgres redis
    ```
 2. Configure API keys in `src/Services/DataGovernance.API/appsettings.json` under `Harness:OpenAI` / `Harness:Anthropic` (or via environment variables).
+   - **Important**: default PostgreSQL credentials in `appsettings.json` are for local development only; override all connection strings and secrets in production via environment variables/secret manager.
 3. Run API:
    ```bash
    cd src/Services/DataGovernance.API

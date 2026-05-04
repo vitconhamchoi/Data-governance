@@ -4,6 +4,7 @@ using DataGovernance.Domain.Entities.Harness;
 using DataGovernance.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel.ChatCompletion;
+using System.Text.RegularExpressions;
 
 namespace DataGovernance.API.Services.Harness;
 
@@ -74,7 +75,7 @@ public sealed class AIHarnessService : IAIHarnessService
         _dbContext.Messages.Add(userMessage);
         _dbContext.Runs.Add(run);
 
-        await AddStepAsync(run, 1, "create_run", null, RunStepStatus.Completed, request.Input, "run_created", null, cancellationToken);
+        AddStep(run, 1, "create_run", null, RunStepStatus.Completed, request.Input, "run_created", null);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ToDto(run);
@@ -132,12 +133,12 @@ public sealed class AIHarnessService : IAIHarnessService
         try
         {
             TransitionOrThrow(run, RunStatus.Classifying);
-            await AddStepAsync(run, stepNo++, "classify", null, RunStepStatus.Completed, run.Input, "general", null, cancellationToken);
+            AddStep(run, stepNo++, "classify", null, RunStepStatus.Completed, run.Input, "general", null);
 
             TransitionOrThrow(run, RunStatus.Planning);
-            await AddStepAsync(run, stepNo++, "plan", null, RunStepStatus.Completed, run.Input, "single-step execution", null, cancellationToken);
+            AddStep(run, stepNo++, "plan", null, RunStepStatus.Completed, run.Input, "single-step execution", null);
 
-            if (run.Input.Contains("approve", StringComparison.OrdinalIgnoreCase))
+            if (RequiresManualApproval(run.Input))
             {
                 TransitionOrThrow(run, RunStatus.AwaitingApproval);
                 _dbContext.Approvals.Add(new Approval
@@ -151,7 +152,7 @@ public sealed class AIHarnessService : IAIHarnessService
                     CreatedBy = "system",
                     UpdatedBy = "system"
                 });
-                await AddStepAsync(run, stepNo, "approval", null, RunStepStatus.Pending, run.Input, null, null, cancellationToken);
+                AddStep(run, stepNo, "approval", null, RunStepStatus.Pending, run.Input, null, null);
                 await _dbContext.SaveChangesAsync(cancellationToken);
                 return;
             }
@@ -159,12 +160,8 @@ public sealed class AIHarnessService : IAIHarnessService
             TransitionOrThrow(run, RunStatus.Executing);
 
             string executionOutput;
-            if (run.Input.StartsWith("tool:", StringComparison.OrdinalIgnoreCase))
+            if (TryParseToolInvocation(run.Input, out var toolName, out var payload))
             {
-                var parsed = run.Input.Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-                var toolName = parsed[0].Split(':', 2).ElementAtOrDefault(1) ?? "echo";
-                var payload = parsed.Length > 1 ? parsed[1] : "{}";
-
                 var toolResult = await _toolHarnessService.InvokeAsync(
                     new ToolInvocationRequest(
                         toolName,
@@ -178,7 +175,7 @@ public sealed class AIHarnessService : IAIHarnessService
                 }
 
                 executionOutput = toolResult.OutputJson;
-                await AddStepAsync(run, stepNo++, "tool_execution", toolName, RunStepStatus.Completed, payload, executionOutput, null, cancellationToken);
+                AddStep(run, stepNo++, "tool_execution", toolName, RunStepStatus.Completed, payload, executionOutput, null);
             }
             else
             {
@@ -192,12 +189,12 @@ public sealed class AIHarnessService : IAIHarnessService
                 var response = await chatService.GetChatMessageContentAsync(history, kernel: kernel, cancellationToken: cancellationToken);
                 executionOutput = response.Content ?? string.Empty;
 
-                await AddStepAsync(run, stepNo++, "model_execution", null, RunStepStatus.Completed, run.Input, executionOutput, null, cancellationToken);
+                AddStep(run, stepNo++, "model_execution", null, RunStepStatus.Completed, run.Input, executionOutput, null);
             }
 
             TransitionOrThrow(run, RunStatus.Synthesizing);
             run.FinalOutput = executionOutput;
-            await AddStepAsync(run, stepNo++, "synthesize", null, RunStepStatus.Completed, executionOutput, executionOutput, null, cancellationToken);
+            AddStep(run, stepNo++, "synthesize", null, RunStepStatus.Completed, executionOutput, executionOutput, null);
 
             TransitionOrThrow(run, RunStatus.Completed);
             run.LatencyMs = (int)(DateTimeOffset.UtcNow - startTime).TotalMilliseconds;
@@ -221,7 +218,7 @@ public sealed class AIHarnessService : IAIHarnessService
             run.LastError = ex.Message;
             run.SetStatusUnsafe(RunStatus.Failed);
 
-            await AddStepAsync(run, stepNo, "failure", null, RunStepStatus.Failed, run.Input, null, ex.Message, cancellationToken);
+            AddStep(run, stepNo, "failure", null, RunStepStatus.Failed, run.Input, null, ex.Message);
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
     }
@@ -278,7 +275,32 @@ public sealed class AIHarnessService : IAIHarnessService
         }
     }
 
-    private async Task AddStepAsync(
+    private static bool RequiresManualApproval(string input)
+    {
+        return Regex.IsMatch(input, @"\bapprove\b", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
+
+    private static bool TryParseToolInvocation(string input, out string toolName, out string payload)
+    {
+        toolName = string.Empty;
+        payload = "{}";
+
+        var match = Regex.Match(
+            input.Trim(),
+            @"^tool:(?<name>[a-zA-Z0-9_-]+)(?:\s+(?<payload>.+))?$",
+            RegexOptions.CultureInvariant);
+
+        if (!match.Success)
+        {
+            return false;
+        }
+
+        toolName = match.Groups["name"].Value;
+        payload = match.Groups["payload"].Success ? match.Groups["payload"].Value : "{}";
+        return true;
+    }
+
+    private void AddStep(
         Run run,
         int stepNo,
         string stepType,
@@ -286,8 +308,7 @@ public sealed class AIHarnessService : IAIHarnessService
         RunStepStatus status,
         string? input,
         string? output,
-        string? error,
-        CancellationToken cancellationToken)
+        string? error)
     {
         _dbContext.RunSteps.Add(new RunStep
         {
@@ -306,7 +327,5 @@ public sealed class AIHarnessService : IAIHarnessService
             CreatedBy = "system",
             UpdatedBy = "system"
         });
-
-        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 }

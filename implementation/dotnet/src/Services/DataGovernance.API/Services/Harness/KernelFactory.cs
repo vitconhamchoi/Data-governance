@@ -30,8 +30,12 @@ public sealed class KernelFactory : IKernelFactory
                 throw new InvalidOperationException("Anthropic ApiKey is not configured.");
             }
 
-            // Anthropic connector availability depends on package/runtime.
-            // Fallback to OpenAI connector style endpoint only when explicit base model is set.
+            if (!_options.Anthropic.UseOpenAICompatibleProxy)
+            {
+                throw new NotSupportedException(
+                    "Anthropic direct connector is not configured. Set Harness:Anthropic:UseOpenAICompatibleProxy=true when using an OpenAI-compatible Anthropic gateway.");
+            }
+
             builder.AddOpenAIChatCompletion(
                 modelId: string.IsNullOrWhiteSpace(model) ? _options.Anthropic.Model : model,
                 apiKey: _options.Anthropic.ApiKey);
