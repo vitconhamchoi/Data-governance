@@ -8,6 +8,7 @@ using DataGovernance.Domain.Repositories;
 using DataGovernance.Infrastructure.Data;
 using DataGovernance.Infrastructure.Data.Repositories;
 using MassTransit;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
@@ -42,7 +43,7 @@ builder.Services.AddStackExchangeRedisCache(options => options.Configuration = r
 builder.Services.AddScoped<IDataAssetRepository, DataAssetRepository>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
-builder.Services.AddMediatR(typeof(Program));
+builder.Services.AddMediatR(typeof(Program).Assembly);
 
 builder.Services.AddSingleton<IKernelFactory, KernelFactory>();
 builder.Services.AddScoped<IAIHarnessService, AIHarnessService>();
@@ -78,13 +79,9 @@ builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService("DataGovernance.API"))
     .WithTracing(tracing => tracing
         .AddAspNetCoreInstrumentation()
-        .AddHttpClientInstrumentation()
-        .AddEntityFrameworkCoreInstrumentation()
-        .AddOtlpExporter())
+        .AddHttpClientInstrumentation())
     .WithMetrics(metrics => metrics
-        .AddAspNetCoreInstrumentation()
-        .AddRuntimeInstrumentation()
-        .AddProcessInstrumentation());
+        .AddAspNetCoreInstrumentation());
 
 var app = builder.Build();
 
