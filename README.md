@@ -96,6 +96,10 @@ flowchart TB
 
 ---
 
+## Tài liệu thiết kế chi tiết
+
+- Data Governance (data-only): `03_data_governance_design.md`
+
 ## 2. Kiến trúc nền tảng (Data + AI)
 
 
