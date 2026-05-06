@@ -1,8 +1,8 @@
-# 01. Technical Architecture — Nền tảng IoMT cho hệ thống khám sức khỏe quy mô lớn
+# 01. Kiến trúc kỹ thuật — Nền tảng IoMT cho hệ thống khám sức khỏe quy mô lớn
 
-## 1. Document Purpose
+## 1. Tổng quan
 
-Tài liệu này mô tả kiến trúc kỹ thuật mục tiêu cho một nền tảng IoMT phục vụ:
+Tài liệu này mô tả thiết kế mục tiêu cho một nền tảng IoMT phục vụ:
 
 - khám sức khỏe định kỳ,
 - theo dõi sức khỏe chủ động,
@@ -10,22 +10,13 @@ Tài liệu này mô tả kiến trúc kỹ thuật mục tiêu cho một nền 
 - cảnh báo bất thường gần real-time,
 - tích hợp với hệ sinh thái bệnh viện, phòng khám, bảo hiểm và hệ thống điều hành.
 
-Đây là **technical architecture document** ở cấp độ solution / platform architecture, hướng tới hệ thống có khả năng phục vụ **hàng triệu người dùng và hàng triệu thiết bị**.
-
-Tài liệu tập trung vào:
-
-- kiến trúc logic,
-- kiến trúc runtime,
-- kiến trúc triển khai,
-- các quyết định kiến trúc trọng yếu,
-- non-functional requirements,
-- rủi ro kỹ thuật và cơ chế giảm thiểu.
+Nội dung được trình bày theo cấu trúc: bắt đầu từ bức tranh toàn cục, sau đó đi dần xuống các khối chức năng, cuối cùng là cách triển khai trong thực tế.
 
 ---
 
-## 2. Scope
+## 2. Phạm vi
 
-### 2.1. In scope
+### 2.1. Bao gồm
 
 - device connectivity cho thiết bị y tế tại nhà, wearable, kiosk, gateway
 - ingestion pipeline cho telemetry và command/control
@@ -34,7 +25,7 @@ Tài liệu tập trung vào:
 - API layer cho doctor portal, citizen app, operations, integration
 - bảo mật, quan sát, HA/DR, partitioning, capacity model ở mức kiến trúc
 
-### 2.2. Out of scope
+### 2.2. Không bao gồm
 
 - chi tiết UI/UX của ứng dụng người dùng
 - thiết kế cụ thể của từng màn hình bác sĩ hoặc điều hành
@@ -44,16 +35,16 @@ Tài liệu tập trung vào:
 
 ---
 
-## 3. Architecture Drivers
+## 3. Động lực thiết kế
 
-### 3.1. Business drivers
+### 3.1. Nhu cầu nghiệp vụ
 
 - cung cấp dịch vụ khám sức khỏe và theo dõi sức khỏe liên tục trên quy mô lớn
 - giảm phụ thuộc vào mô hình khám phản ứng sau khi phát bệnh
 - hỗ trợ chương trình quản lý bệnh mạn tính và screening cộng đồng
 - tạo nền tảng dữ liệu thống nhất cho bác sĩ, điều hành, chăm sóc khách hàng và hệ thống tích hợp
 
-### 3.2. Technical drivers
+### 3.2. Yêu cầu kỹ thuật
 
 - số lượng thiết bị lớn, phân tán địa lý rộng
 - thiết bị/gateway có chất lượng mạng không đồng đều
@@ -63,9 +54,9 @@ Tài liệu tập trung vào:
 
 ---
 
-## 4. Assumptions and Workload Model
+## 4. Giả định và mô hình tải
 
-### 4.1. Reference scale
+### 4.1. Quy mô tham chiếu
 
 Quy mô tham chiếu để thiết kế:
 
@@ -74,7 +65,7 @@ Quy mô tham chiếu để thiết kế:
 - mỗi thiết bị gửi dữ liệu trung bình **1 lần / 5 phút**
 - lưu lượng nền khoảng **200.000 events/phút** tương đương **~3.300 events/giây**
 
-### 4.2. Peak scenarios
+### 4.2. Kịch bản đỉnh tải
 
 Kiến trúc phải chịu được các đỉnh tải sau:
 
@@ -83,7 +74,7 @@ Kiến trúc phải chịu được các đỉnh tải sau:
 - chiến dịch khám tập trung tại doanh nghiệp hoặc điểm đo cộng đồng
 - đồng thời nhiều loại telemetry cùng đẩy về trong cửa sổ thời gian ngắn
 
-### 4.3. Payload characteristics
+### 4.3. Đặc tính payload
 
 Một sự kiện telemetry điển hình gồm:
 
@@ -101,7 +92,7 @@ Một sự kiện telemetry điển hình gồm:
 
 ---
 
-## 5. Non-Functional Requirements
+## 5. Phi chức năng
 
 ### 5.1. Availability
 
@@ -118,6 +109,25 @@ Một sự kiện telemetry điển hình gồm:
 
 - ingestion phải hấp thụ burst mà không mất dữ liệu đã accepted
 - alerting near-real-time cho critical rules trong ngưỡng vài giây đến vài chục giây tùy loại cảnh báo
+
+---
+
+## 6. Cách áp dụng
+
+### 6.1. Trình tự triển khai khuyến nghị
+
+1. **Thiết lập nền tảng kết nối thiết bị**: chuẩn hóa identity, onboarding, provisioning, và kênh giao tiếp.
+2. **Dựng ingestion + event backbone**: tách rõ đường ghi telemetry khỏi các API nghiệp vụ.
+3. **Xây pipeline chuẩn hóa dữ liệu**: validate, enrich, deduplicate, và phân loại mức tin cậy.
+4. **Bật alerting theo mức độ rủi ro**: ưu tiên rule-based cho sự kiện nguy cấp, sau đó mở rộng sang ML.
+5. **Hoàn thiện vận hành**: quan sát, phân vùng theo tenant/region, diễn tập HA/DR, tối ưu chi phí.
+
+### 6.2. Checklist đưa vào production
+
+- Cơ chế chống reconnect storm và backpressure cho ingress.
+- Chính sách partitioning theo tenant/region/time window cho broker và time-series.
+- Quy trình replay và audit cho dữ liệu đã accepted.
+- SLO cho alerting path tách biệt khỏi read path của portal.
 - query dashboard bác sĩ không được scan toàn bộ cold storage
 
 ### 5.4. Security and privacy
