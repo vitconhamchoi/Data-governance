@@ -1,0 +1,6 @@
+com/datagovernance/policy/repository/PolicyRepository.class
+com/datagovernance/policy/controller/PolicyController.class
+com/datagovernance/policy/entity/Policy$PolicyBuilder.class
+com/datagovernance/policy/service/PolicyService.class
+com/datagovernance/policy/PolicyServiceApplication.class
+com/datagovernance/policy/entity/Policy.class
