@@ -18,6 +18,9 @@ datahub:
   graphql:
     url: ${DATAHUB_GRAPHQL_URL:http://localhost:9002/api/graphql}
   token: ${DATAHUB_TOKEN:}
+  dataset:
+    platform: ${DATAHUB_DATASET_PLATFORM:trino}
+    env: ${DATAHUB_DATASET_ENV:PROD}
 
 ai:
   llm:

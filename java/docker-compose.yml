@@ -103,6 +103,8 @@ services:
       POLICY_SERVICE_URL: http://policy-service:8080
       DATAHUB_GRAPHQL_URL: http://datahub-gms:8080/api/graphql
       DATAHUB_TOKEN: ${DATAHUB_TOKEN:-}
+      DATAHUB_DATASET_PLATFORM: ${DATAHUB_DATASET_PLATFORM:-trino}
+      DATAHUB_DATASET_ENV: ${DATAHUB_DATASET_ENV:-PROD}
       AI_LLM_BASE_URL: ${AI_LLM_BASE_URL:-https://api.openai.com}
       AI_LLM_API_KEY: ${AI_LLM_API_KEY:-}
       AI_LLM_MODEL: ${AI_LLM_MODEL:-gpt-4o-mini}

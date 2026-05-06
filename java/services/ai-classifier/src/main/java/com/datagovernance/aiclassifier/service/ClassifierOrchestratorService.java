@@ -4,6 +4,7 @@ import com.datagovernance.aiclassifier.model.ClassifyDatasetRequest;
 import com.datagovernance.aiclassifier.model.ClassifyDatasetResponse;
 import com.datagovernance.aiclassifier.model.ColumnClassification;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -19,6 +20,10 @@ public class ClassifierOrchestratorService {
     private final OpenAiPiiClassifierClient llmClassifierClient;
     private final DataHubTagClient dataHubTagClient;
     private final PolicySuggestionClient policySuggestionClient;
+    @Value("${datahub.dataset.platform:trino}")
+    private String defaultPlatform;
+    @Value("${datahub.dataset.env:PROD}")
+    private String defaultEnv;
 
     public ClassifyDatasetResponse classify(ClassifyDatasetRequest request) {
         Map<String, String> samples = datasetSampler.sampleOneValuePerColumn(request.getDataset(), request.getSampleLimit());
@@ -36,7 +41,7 @@ public class ClassifierOrchestratorService {
 
                 String datasetUrn = request.getDatasetUrn() != null && !request.getDatasetUrn().isBlank()
                         ? request.getDatasetUrn()
-                        : "urn:li:dataset:(urn:li:dataPlatform:trino," + request.getDataset() + ",PROD)";
+                        : "urn:li:dataset:(urn:li:dataPlatform:" + defaultPlatform + "," + request.getDataset() + "," + defaultEnv + ")";
                 dataHubTagClient.addTag(datasetUrn, classification.getType());
                 policySuggestionClient.requestRecommendation(request.getDataset(), column, classification.getType());
             }

@@ -42,15 +42,16 @@ public class SemanticSearchService {
 
         return jdbcTemplate.query(
                 """
-                SELECT dataset, metadata_json::text, 1 - (embedding <=> ?::vector) AS similarity
-                FROM dataset_embeddings
-                ORDER BY embedding <=> ?::vector
+                WITH query_vector AS (SELECT ?::vector AS v)
+                SELECT d.dataset, d.metadata_json::text, 1 - (d.embedding <=> q.v) AS similarity
+                FROM dataset_embeddings d
+                CROSS JOIN query_vector q
+                ORDER BY d.embedding <=> q.v
                 LIMIT ?
                 """,
                 ps -> {
                     ps.setString(1, vectorLiteral);
-                    ps.setString(2, vectorLiteral);
-                    ps.setInt(3, Math.max(1, topK));
+                    ps.setInt(2, Math.max(1, topK));
                 },
                 (rs, rowNum) -> SemanticSearchResult.builder()
                         .dataset(rs.getString("dataset"))

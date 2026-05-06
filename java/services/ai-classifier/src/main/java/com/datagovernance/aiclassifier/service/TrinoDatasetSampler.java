@@ -6,10 +6,12 @@ import org.springframework.stereotype.Service;
 
 import java.sql.*;
 import java.util.*;
+import java.util.regex.Pattern;
 
 @Service
 @RequiredArgsConstructor
 public class TrinoDatasetSampler {
+    private static final Pattern DATASET_IDENTIFIER = Pattern.compile("^[A-Za-z_][A-Za-z0-9_]*(\\.[A-Za-z_][A-Za-z0-9_]*)?$");
 
     @Value("${trino.jdbc.url:jdbc:trino://localhost:8080/postgresql/public}")
     private String trinoJdbcUrl;
@@ -18,7 +20,8 @@ public class TrinoDatasetSampler {
     private String trinoUser;
 
     public Map<String, String> sampleOneValuePerColumn(String dataset, int limit) {
-        String sql = "SELECT * FROM " + dataset + " LIMIT " + Math.max(1, limit);
+        String sanitizedDataset = sanitizeDatasetIdentifier(dataset);
+        String sql = "SELECT * FROM " + sanitizedDataset + " LIMIT " + Math.max(1, limit);
         Properties props = new Properties();
         props.setProperty("user", trinoUser);
 
@@ -47,5 +50,16 @@ public class TrinoDatasetSampler {
         }
 
         return samples;
+    }
+
+    private String sanitizeDatasetIdentifier(String dataset) {
+        if (dataset == null || dataset.isBlank()) {
+            throw new IllegalArgumentException("Dataset is required");
+        }
+        String normalized = dataset.trim();
+        if (!DATASET_IDENTIFIER.matcher(normalized).matches()) {
+            throw new IllegalArgumentException("Invalid dataset identifier");
+        }
+        return normalized;
     }
 }

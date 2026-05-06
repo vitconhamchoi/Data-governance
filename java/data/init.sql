@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS dataset_embeddings (
 INSERT INTO users (name, email, phone) VALUES
 ('Alice Nguyen', 'alice@example.com', '0901234567'),
 ('Bob Tran', 'bob@example.com', '0912345678'),
-('Charlie Pham', '0923456789', '0923456789'),
+('Charlie Pham', 'charlie@example.com', '0923456789'),
 ('Diana Le', 'diana@example.com', '0934567890'),
 ('Eve Hoang', 'eve@example.com', '0945678901')
 ON CONFLICT DO NOTHING;

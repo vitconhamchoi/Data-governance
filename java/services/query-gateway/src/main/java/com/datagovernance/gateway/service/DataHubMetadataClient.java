@@ -59,13 +59,33 @@ public class DataHubMetadataClient {
     }
 
     public List<String> extractTableHintsFromQuestion(String question) {
-        String lower = question.toLowerCase();
-        if (lower.contains("order")) {
-            return List.of("orders", "users");
+        String searchQuery = "query search($input: SearchInput!) { search(input: $input) { searchResults { entity { urn } } } }";
+        Map<String, Object> input = Map.of(
+                "type", "DATASET",
+                "query", question,
+                "start", 0,
+                "count", 5
+        );
+
+        try {
+            WebClient.RequestBodySpec req = webClientBuilder.build().post().uri(graphqlUrl)
+                    .contentType(MediaType.APPLICATION_JSON);
+            if (token != null && !token.isBlank()) {
+                req = req.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
+            }
+            JsonNode response = req.bodyValue(Map.of("query", searchQuery, "variables", Map.of("input", input)))
+                    .retrieve()
+                    .bodyToMono(JsonNode.class)
+                    .block();
+
+            JsonNode results = response.path("data").path("search").path("searchResults");
+            if (results.isArray() && !results.isEmpty()) {
+                return results.findValuesAsText("urn");
+            }
+        } catch (Exception ex) {
+            log.warn("DataHub search failed: {}", ex.getMessage());
         }
-        if (lower.contains("user")) {
-            return List.of("users");
-        }
-        return List.of("orders", "users");
+
+        return List.of("urn:li:dataset:(urn:li:dataPlatform:trino,orders,PROD)", "urn:li:dataset:(urn:li:dataPlatform:trino,users,PROD)");
     }
 }
