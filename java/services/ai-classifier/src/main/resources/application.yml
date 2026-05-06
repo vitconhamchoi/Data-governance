@@ -3,9 +3,7 @@ server:
 
 spring:
   application:
-    name: query-gateway
-  main:
-    web-application-type: servlet
+    name: ai-classifier
 
 trino:
   jdbc:
@@ -20,6 +18,9 @@ datahub:
   graphql:
     url: ${DATAHUB_GRAPHQL_URL:http://localhost:9002/api/graphql}
   token: ${DATAHUB_TOKEN:}
+  dataset:
+    platform: ${DATAHUB_DATASET_PLATFORM:trino}
+    env: ${DATAHUB_DATASET_ENV:PROD}
 
 ai:
   llm:
