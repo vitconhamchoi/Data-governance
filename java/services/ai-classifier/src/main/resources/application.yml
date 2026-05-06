@@ -3,9 +3,7 @@ server:
 
 spring:
   application:
-    name: query-gateway
-  main:
-    web-application-type: servlet
+    name: ai-classifier
 
 trino:
   jdbc:

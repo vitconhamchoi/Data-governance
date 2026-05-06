@@ -18,6 +18,12 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
+ai:
+  llm:
+    base-url: ${AI_LLM_BASE_URL:https://api.openai.com}
+    api-key: ${AI_LLM_API_KEY:}
+    model: ${AI_LLM_MODEL:gpt-4o-mini}
+
 logging:
   level:
     com.datagovernance: INFO

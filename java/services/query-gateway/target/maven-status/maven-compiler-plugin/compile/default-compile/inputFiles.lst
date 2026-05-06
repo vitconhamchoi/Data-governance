@@ -1,8 +1,0 @@
-/home/runner/work/Data-governance/Data-governance/java/services/query-gateway/src/main/java/com/datagovernance/gateway/model/QueryResponse.java
-/home/runner/work/Data-governance/Data-governance/java/services/query-gateway/src/main/java/com/datagovernance/gateway/controller/QueryController.java
-/home/runner/work/Data-governance/Data-governance/java/services/query-gateway/src/main/java/com/datagovernance/gateway/QueryGatewayApplication.java
-/home/runner/work/Data-governance/Data-governance/java/services/query-gateway/src/main/java/com/datagovernance/gateway/service/QueryExecutorService.java
-/home/runner/work/Data-governance/Data-governance/java/services/query-gateway/src/main/java/com/datagovernance/gateway/service/PolicyClient.java
-/home/runner/work/Data-governance/Data-governance/java/services/query-gateway/src/main/java/com/datagovernance/gateway/model/PolicyDto.java
-/home/runner/work/Data-governance/Data-governance/java/services/query-gateway/src/main/java/com/datagovernance/gateway/service/MaskingService.java
-/home/runner/work/Data-governance/Data-governance/java/services/query-gateway/src/main/java/com/datagovernance/gateway/model/QueryRequest.java
