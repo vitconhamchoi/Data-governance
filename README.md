@@ -1,1120 +1,616 @@
-# Data Governance & AI Platform Architecture
+# Tổng quan Data Governance cho hệ thống phần mềm lớn
 
 ## Executive Summary
 
-Repository này chứa các tài liệu kiến trúc kỹ thuật cấp enterprise cho việc xây dựng nền tảng dữ liệu, AI và IoT quy mô lớn. Các tài liệu được viết từ góc nhìn của một kiến trúc sư phần mềm, tập trung vào các quyết định kiến trúc then chốt, trade-offs kỹ thuật và khả năng vận hành production.
+Tài liệu này mô tả một mô hình **data governance end-to-end** dành cho hệ thống phần mềm quy mô lớn, nơi dữ liệu đi qua nhiều nguồn, nhiều pipeline, nhiều nhóm kỹ thuật và nhiều lớp tiêu thụ khác nhau như giao dịch, phân tích, báo cáo, API và AI.
 
-**Đối tượng mục tiêu**: Software Architects, Platform Engineers, Technical Leads, Engineering Managers
+Mục tiêu của data governance không phải là thêm thủ tục hành chính. Mục tiêu là tạo ra một **control plane thống nhất** để mọi dữ liệu quan trọng đều có:
 
-**Phạm vi**: Enterprise-grade platform architecture cho Data, AI và IoT
+- định nghĩa rõ ràng,
+- owner và steward rõ ràng,
+- phân loại bảo mật rõ ràng,
+- chính sách truy cập rõ ràng,
+- chất lượng được đo được,
+- lineage truy vết được,
+- audit kiểm tra được,
+- và cơ chế vận hành đủ thực dụng để triển khai thật.
+
+README này là tài liệu độc lập, trình bày đầy đủ mô hình, sơ đồ triển khai, use case, trade-off và định hướng áp dụng để có thể dùng trực tiếp làm nền cho triển khai.
 
 ---
 
-## 1. Tổng quan kiến trúc
+## 1. Khi nào cần data governance ở mức platform
 
-### 1.1. Triết lý thiết kế
+Data governance trở thành bắt buộc khi hệ thống có một hoặc nhiều dấu hiệu sau:
 
-Các kiến trúc trong repository này được xây dựng dựa trên các nguyên tắc cốt lõi sau:
+- dữ liệu đến từ nhiều nguồn như OLTP, file, CDC, event stream, SaaS, đối tác;
+- nhiều đội cùng tạo, biến đổi và tiêu thụ dữ liệu;
+- dữ liệu có chứa PII, tài chính, y tế hoặc dữ liệu nhạy cảm khác;
+- cần self-service analytics nhưng vẫn phải kiểm soát quyền;
+- cần chứng minh compliance, audit hoặc forensic;
+- cần AI/BI chạy trên dữ liệu đáng tin, không dùng dữ liệu “ngầm hiểu”.
 
-1. **Platform thinking, not point solution**
-   - Xây dựng nền tảng có khả năng tái sử dụng
-   - Phục vụ nhiều use case thay vì giải quyết từng bài toán riêng lẻ
+Nếu chưa có governance, các vấn đề thường xuất hiện là:
 
-2. **Data-first, not model-first**
-   - Chất lượng dữ liệu và governance là nền tảng
-   - Model chỉ tạo giá trị khi dữ liệu đủ tin cậy
+- cùng một business term nhưng nhiều định nghĩa;
+- cùng một bảng nhưng không rõ owner;
+- pipeline chạy xong nhưng không biết dữ liệu có đạt chất lượng hay không;
+- quyền truy cập cấp theo ticket thủ công, khó thu hồi;
+- sự cố dữ liệu xảy ra nhưng không truy được upstream/downstream;
+- đội AI, BI, product và compliance nói chuyện bằng các “sự thật” khác nhau.
 
-3. **Separation of concerns**
-   - Tách biệt rõ ràng giữa các layer: ingestion, processing, storage, access
-   - Read path và write path được thiết kế độc lập
+---
 
-4. **Event-driven architecture**
-   - Loose coupling thông qua event backbone
-   - Async-by-default để đảm bảo khả năng scale
+## 2. Mục tiêu kiến trúc
 
-### 1.2. Kiến trúc tham chiếu tổng thể
+Một nền data governance hoàn chỉnh trong hệ thống lớn nên đạt được các mục tiêu sau:
+
+1. **Một sự thật thống nhất về metadata**
+   - dataset nào tồn tại,
+   - ai sở hữu,
+   - mức độ nhạy cảm là gì,
+   - SLA/SLO là gì,
+   - downstream nào đang phụ thuộc.
+
+2. **Một cơ chế kiểm soát xuyên suốt vòng đời dữ liệu**
+   - từ onboard nguồn,
+   - ingest,
+   - transform,
+   - publish,
+   - access,
+   - retention,
+   - archive,
+   - đến delete.
+
+3. **Chính sách truy cập thực thi được**
+   - không chỉ viết policy trên giấy,
+   - mà policy phải đi vào query path, API path, export path và pipeline path.
+
+4. **Data quality có thể đo, cảnh báo và chặn**
+   - rule nào đang chạy,
+   - ngưỡng là gì,
+   - ai chịu trách nhiệm,
+   - vi phạm thì block hay cảnh báo.
+
+5. **Lineage và audit đủ sâu để điều tra sự cố**
+   - biết dữ liệu đến từ đâu,
+   - đã qua job nào,
+   - bị ảnh hưởng bởi release nào,
+   - ai đã đọc hoặc xuất dữ liệu.
+
+---
+
+## 3. Nguyên tắc thiết kế
+
+1. **Governance là control plane, không phải slide deck**
+2. **Metadata trước, automation sau, nhưng phải đến automation**
+3. **Chính sách phải thực thi tại runtime, không chỉ review thủ công**
+4. **Dữ liệu phải có maturity levels rõ ràng**
+5. **Lineage, quality, audit là khả năng nền, không phải tính năng phụ**
+6. **Thiết kế theo risk-based governance, không over-govern mọi thứ**
+7. **Triển khai theo domain ownership, không dồn mọi quyết định vào một team trung tâm**
+
+---
+
+## 4. Mô hình vận hành tổng thể
+
+### 4.1. Governance operating model
 
 ```mermaid
 flowchart TB
-    subgraph Sources[Data Sources]
-        S1[Transactional Systems<br/>ERP, CRM, Billing]
-        S2[Documents & Files<br/>PDF, Email, Contracts]
-        S3[Real-time Channels<br/>IoT, Events, Logs]
-        S4[External Data<br/>Partners, Public Data]
-    end
+  subgraph Producers[Data Producers]
+    P1[Application Teams]
+    P2[Data Engineers]
+    P3[External Partners]
+  end
 
-    subgraph Ingestion[Data Ingestion Layer]
-        I1[ETL/ELT Pipeline]
-        I2[API Sync]
-        I3[CDC Streams]
-        I4[Message Bus]
-        I5[IoT Gateway]
-    end
+  subgraph ControlPlane[Governance Control Plane]
+    C1[Catalog & Glossary]
+    C2[Schema & Data Contracts]
+    C3[Classification & Tagging]
+    C4[Policy Engine]
+    C5[Lineage & Metadata Graph]
+    C6[Data Quality Rules]
+    C7[Audit & Compliance]
+  end
 
-    subgraph Platform[Data Platform Core]
-        P1[Event Backbone<br/>Kafka/Pulsar]
-        P2[Data Lakehouse<br/>Raw → Standardized → Curated → Trusted]
-        P3[Stream Processing<br/>Normalization, Enrichment, Aggregation]
-    end
+  subgraph DataPlane[Data Plane]
+    D1[Ingestion\nBatch / CDC / Streaming]
+    D2[Raw Zone]
+    D3[Standardized Zone]
+    D4[Curated Zone]
+    D5[Trusted Zone]
+    D6[Serving Layer\nSQL / API / Export]
+  end
 
-    subgraph Governance[Data Governance]
-        G1[Data Catalog]
-        G2[Lineage Tracking]
-        G3[Access Control & IAM]
-        G4[Data Quality]
-        G5[Audit & Compliance]
-    end
+  subgraph Consumers[Consumers]
+    U1[Analytics & BI]
+    U2[Operational Services]
+    U3[External Integrations]
+    U4[AI / ML / Search]
+  end
 
-    subgraph Consumption[Consumption Layer]
-        C1[Semantic Layer<br/>Unified Business View]
-        C2[Feature Store<br/>ML Features]
-        C3[Knowledge Base<br/>RAG & Vector Store]
-        C4[Data Mart<br/>BI & Analytics]
-    end
-
-    subgraph Applications[Application Layer]
-        A1[BI Dashboards<br/>Operational Reports]
-        A2[ML Models<br/>Prediction & Forecasting]
-        A3[GenAI Applications<br/>RAG, Agents, Assistants]
-        A4[Real-time Alerting<br/>Monitoring & Notifications]
-    end
-
-    subgraph Operations[Platform Operations]
-        O1[MLOps/LLMOps<br/>Model Management]
-        O2[AI Harness<br/>Orchestration & Control]
-        O3[Observability<br/>Metrics, Traces, Logs]
-        O4[Cost Management<br/>Usage & Optimization]
-    end
-
-    Sources --> Ingestion
-    Ingestion --> Platform
-    Platform <--> Governance
-    Platform --> Consumption
-    Consumption --> Applications
-    Applications <--> Operations
+  Producers --> ControlPlane
+  Producers --> DataPlane
+  ControlPlane <--> DataPlane
+  DataPlane --> Consumers
+  ControlPlane --> Consumers
 ```
+
+### 4.2. Ý nghĩa mô hình
+
+- **Data plane** chịu trách nhiệm vận chuyển, lưu trữ, biến đổi và phục vụ dữ liệu.
+- **Control plane** chịu trách nhiệm định nghĩa luật chơi: metadata, classification, policy, quality, lineage, audit.
+- Hai lớp này phải kết nối chặt với nhau để mọi pipeline và mọi query đều chịu governance bằng metadata và policy thống nhất.
 
 ---
 
-## Tài liệu thiết kế chi tiết
+## 5. Mô hình tổ chức và trách nhiệm
 
-- Data Governance (data-only): `03_data_governance_design.md`
+### 5.1. Vai trò cốt lõi
 
-## 2. Kiến trúc nền tảng (Data + AI)
+| Vai trò | Trách nhiệm chính |
+|---|---|
+| Data Owner | Chịu trách nhiệm cuối cùng về dữ liệu trong domain |
+| Data Steward | Quản trị nghĩa dữ liệu, glossary, classification, policy metadata |
+| Data Engineer | Xây ingestion, transform, DQ checks, lineage hooks |
+| Platform Team | Vận hành control plane, policy engine, catalog, audit, observability |
+| Security / Compliance | Định nghĩa chuẩn phân loại, retention, masking, access control |
+| Data Consumer | Sử dụng dữ liệu đúng purpose, đúng quyền, đúng hợp đồng |
 
+### 5.2. RACI khuyến nghị
 
-### 2.1. Mục tiêu kiến trúc
+| Hạng mục | Responsible | Accountable | Consulted | Informed |
+|---|---|---|---|---|
+| Business glossary | Data Steward | Data Owner | SMEs | Consumers |
+| Dataset contract | Data Engineer | Data Owner | Platform | Consumers |
+| Access policy | Security / Platform | Data Owner | Compliance | Consumers |
+| Classification | Data Steward | Data Owner | Security | Platform |
+| DQ suite | Data Engineer | Data Owner | Analysts | Consumers |
+| Incident dữ liệu | Platform / Data Engineer | Data Owner | Security / Ops | Stakeholders |
 
-- Một nền tảng **governance-first** để dữ liệu đủ tin cậy cho vận hành, phân tích và AI.
-- Một lớp **AI enablement** (RAG/Agents) dùng lại cùng metadata/permissions/audit của data platform.
-- Một lớp **operations** (observability + cost + policy) để AI chạy production, không phải demo.
+---
 
-### 2.2. Quyết định then chốt (tóm tắt)
+## 6. Metadata model tối thiểu phải có
 
-- **Lakehouse nhiều zone** (Raw→Standardized→Curated→Trusted) để trace/replay/quality-gates.
-- **Event backbone** (Kafka/Pulsar) để decouple ingestion/processing/consumption và hỗ trợ near-real-time.
-- **Governance như control plane**: catalog + lineage + IAM + audit là bắt buộc, không “làm sau”.
-- **AI chạy trên nền dữ liệu có kiểm soát**: cùng một policy engine cho SQL/API và cho LLM tools.
+Một hệ governance chỉ chạy tốt khi metadata đủ tối thiểu ngay từ đầu.
 
-## 3. Chi tiết kỹ thuật theo domain
+### 6.1. Thực thể metadata cốt lõi
 
-### 3.1. Data Architecture
+- **Data Asset**: table, topic, file set, object, API dataset, feature set
+- **Domain**: vùng nghiệp vụ sở hữu dữ liệu
+- **Owner / Steward**: người chịu trách nhiệm và người vận hành metadata
+- **Schema / Contract**: cấu trúc dữ liệu, ràng buộc, compatibility strategy
+- **Classification**: public, internal, confidential, restricted
+- **Sensitive Tags**: email, phone, national_id, health, finance, location...
+- **Purpose Constraints**: billing, support, analytics, fraud, research...
+- **SLA / SLO**: freshness, completeness, availability, accuracy
+- **Lineage**: upstream, downstream, job_run_id, version, timestamp
+- **Retention Policy**: giữ bao lâu, archive khi nào, xóa khi nào
+- **Access Policy**: ai được truy cập, trong điều kiện nào, với obligations nào
 
-#### 3.1.1. Data Lakehouse Architecture
+### 6.2. Mẫu metadata record
 
-Kiến trúc Data Lakehouse là core của data platform, được tổ chức theo các zone maturity:
+| Thuộc tính | Ví dụ |
+|---|---|
+| asset_name | `customer_360` |
+| asset_type | trusted table |
+| domain | customer-platform |
+| owner | head_of_customer_data |
+| steward | customer-data-steward |
+| classification | confidential |
+| sensitive_tags | email, phone, address |
+| contract_version | v3 |
+| freshness_slo | 30 phút |
+| retention | 5 năm |
+| access_policy | analyst-read-with-masking |
+| lineage_status | dataset-level |
+| quality_status | certified |
 
-```
-┌─────────────────────────────────────────────────────┐
-│  RAW ZONE                                           │
-│  - Dữ liệu gốc chưa xử lý                          │
-│  - Lưu nguyên định dạng từ source                  │
-│  - Immutable, append-only                          │
-│  - Retention: forensics & compliance               │
-└─────────────────────────────────────────────────────┘
-                      ↓
-┌─────────────────────────────────────────────────────┐
-│  STANDARDIZED ZONE                                  │
-│  - Schema chuẩn hóa                                │
-│  - Data type normalization                         │
-│  - Deduplication                                   │
-│  - Basic validation                                │
-└─────────────────────────────────────────────────────┘
-                      ↓
-┌─────────────────────────────────────────────────────┐
-│  CURATED ZONE                                       │
-│  - Business logic applied                          │
-│  - Domain modeling                                 │
-│  - Data quality rules enforced                     │
-│  - Enrichment & joining                            │
-└─────────────────────────────────────────────────────┘
-                      ↓
-┌─────────────────────────────────────────────────────┐
-│  TRUSTED ZONE                                       │
-│  - Production-ready data                           │
-│  - SLA guarantees                                  │
-│  - Certified for reporting & AI                    │
-│  - Governance metadata complete                    │
-└─────────────────────────────────────────────────────┘
-```
+---
 
-**Quyết định kiến trúc quan trọng**:
+## 7. Data lifecycle và governance gates
 
-1. **Tại sao cần multi-zone thay vì một data lake đơn giản?**
-   - **Traceability**: có thể trace ngược về raw data
-   - **Replay**: có thể reprocess khi logic thay đổi
-   - **Quality gates**: data phải qua validation rõ ràng
-   - **Access control**: phân quyền theo mức độ tin cậy
-
-2. **Tại sao không dùng traditional data warehouse?**
-   - **Flexibility**: hỗ trợ cả structured và unstructured data
-   - **Cost**: storage tối ưu hơn cho historical data
-   - **ML workloads**: direct access cho training data
-   - **Schema evolution**: không bị lock bởi rigid schema
-
-#### 3.1.2. Storage Pattern Strategy
-
-| Data Type | Primary Store | Hot Tier | Cold Tier | Rationale |
-|-----------|--------------|----------|-----------|-----------|
-| **Transactional data** | PostgreSQL | SSD | - | ACID, relationships, complex queries |
-| **Time-series telemetry** | TimescaleDB/ClickHouse | Last 30-90 days | Object storage | High write throughput, time-based queries |
-| **Session/cache** | Redis | In-memory | - | Low latency access, TTL support |
-| **Unstructured documents** | Object storage | Frequently accessed | Archive tier | Cost-effective, scalable |
-| **Vector embeddings** | Specialized vector DB | Active indexes | - | Similarity search performance |
-| **Event streams** | Kafka/Pulsar | Configurable retention | S3 tiering | Replay capability, audit trail |
-
-**Nguyên tắc lựa chọn storage**:
-
-1. **Access pattern trumps data size**
-   - Random access → indexed store (PostgreSQL, ElasticSearch)
-   - Sequential scan → columnar store (Parquet on object storage)
-   - Point lookup → key-value store (Redis)
-
-2. **Write vs Read optimization**
-   - Write-heavy → log-structured storage (time-series DB, object storage)
-   - Read-heavy → indexed, cached access
-
-3. **Data lifecycle management**
-   - Hot: recent data, low latency access
-   - Warm: queryable but slower
-   - Cold: archive, compliance retention
-
-### 3.2. Event-Driven Architecture
-
-#### 3.2.1. Event Backbone Design
+### 7.1. Maturity model theo zone
 
 ```mermaid
 flowchart LR
-    subgraph Producers
-        P1[Ingestion Services]
-        P2[Application Services]
-        P3[External Systems]
-    end
-
-    subgraph EventBackbone[Event Backbone - Kafka/Pulsar]
-        T1[telemetry.raw]
-        T2[telemetry.normalized]
-        T3[telemetry.enriched]
-        T4[commands]
-        T5[notifications]
-        T6[audit.events]
-        DLQ[dead-letter-queue]
-    end
-
-    subgraph Consumers
-        C1[Stream Processors]
-        C2[Analytics Pipelines]
-        C3[Alerting Services]
-        C4[Integration Services]
-    end
-
-    P1 & P2 & P3 --> T1
-    T1 --> C1
-    C1 --> T2 & T3
-    T2 & T3 --> C2 & C3 & C4
-    P2 --> T4 & T5
-    T1 & T2 & T3 & T4 & T5 --> T6
+  R[Raw] -->|schema validation + landing checks| S[Standardized]
+  S -->|domain rules + dedup + DQ suite| C[Curated]
+  C -->|certification + SLA + policy check| T[Trusted]
+  T -->|controlled access| X[Consumption]
 ```
 
-**Topic Strategy**:
+### 7.2. Ý nghĩa từng zone
 
-1. **Naming convention**: `<domain>.<entity>.<event-type>`
-   - Ví dụ: `healthcare.vitals.measured`, `iot.device.connected`
+| Zone | Vai trò | Governance tối thiểu |
+|---|---|---|
+| Raw | lưu dữ liệu gốc, phục vụ forensic và replay | restricted access, immutable, landing metadata |
+| Standardized | chuẩn hóa schema, kiểu dữ liệu, khóa | contract validation, basic DQ, owner rõ ràng |
+| Curated | áp business logic và domain model | lineage, DQ nâng cao, semantic definitions |
+| Trusted | dữ liệu chính thức để tiêu thụ rộng | SLA, certified status, policy enforcement, audit đầy đủ |
 
-2. **Partitioning strategy**:
-   ```
-   For telemetry: partition by (tenant_id, device_id)
-   For commands:  partition by device_id
-   For events:    partition by (tenant_id, entity_id)
-   ```
-   - **Goal**: Balance ordering requirements vs parallelism
-   - **Avoid**: Hot partitions từ large tenants
+### 7.3. Governance gates
 
-3. **Retention policy**:
-   - Raw events: 7-30 days (for replay)
-   - Normalized events: 3-7 days (processing buffer)
-   - Audit events: long-term (compliance)
+Một dataset chỉ nên đi lên zone cao hơn khi đạt đồng thời:
 
-#### 3.2.2. Delivery Semantics
-
-**At-least-once + Idempotent Processing**
-
-Lý do chọn at-least-once thay vì exactly-once:
-
-| Aspect | At-least-once | Exactly-once |
-|--------|---------------|--------------|
-| **Complexity** | Lower | Higher |
-| **Performance** | Better throughput | Overhead from coordination |
-| **Operational** | Easier to debug | Complex failure scenarios |
-| **Cost** | Lower | Higher (more coordination) |
-
-**Implementation pattern**:
-```python
-# Idempotency key pattern
-def process_event(event):
-    idempotency_key = f"{event.source}:{event.id}:{event.timestamp}"
-
-    if already_processed(idempotency_key):
-        return  # Skip duplicate
-
-    # Process event (side effects must be idempotent)
-    result = do_processing(event)
-
-    # Mark as processed
-    mark_processed(idempotency_key, result)
-```
-
-### 3.3. AI & ML Platform Architecture
-
-
-#### 3.3.0. AI Integration (RAG + Agents) — điểm ăn tiền
-
-Nếu chỉ “data platform” thì câu chuyện dừng ở ETL/BI. Giá trị mới nằm ở việc biến dữ liệu đã govern thành **knowledge + actions**:
-
-- **RAG/Knowledge Base**: ingest tài liệu, hợp đồng, hướng dẫn, ticket, SOP → chunking → embedding → vector index.
-- **Agents/Tools**: LLM không được query trực tiếp mọi thứ; bắt buộc đi qua tool layer (SQL runner, search, ticketing, workflow) có **schema + timeout + approval**.
-- **Policy & audit end-to-end**: cùng một `principal`/`tenant`/`purpose` áp vào cả data access và tool execution; mọi prompt/tool call đều log để truy vết.
-
-Mẫu triển khai tối thiểu (production):
-
-1. **Retrieval boundary**: KB chỉ publish dữ liệu đã được classify (PII/PHI), redact và có ACL.
-2. **Tool boundary**: tool list theo role; tool có risk level; action nguy hiểm phải approval.
-3. **Evaluation boundary**: regression tests cho prompts/agents, đo hallucination, latency, cost.
-
-
-#### 3.3.1. Unified AI Platform Design
-
-```mermaid
-flowchart TB
-    subgraph DataLayer[Data Layer]
-        FL[Feature Store]
-        KB[Knowledge Base<br/>Vector Store]
-        DM[Data Mart]
-    end
-
-    subgraph AIServices[AI Services]
-        ML[ML Models<br/>Sklearn, XGBoost]
-        DL[Deep Learning<br/>PyTorch, TF]
-        LLM[LLM Services<br/>OpenAI, Claude]
-    end
-
-    subgraph Orchestration[AI Orchestration - Harness]
-        OR[Orchestrator]
-        TH[Tool Harness]
-        MEM[Memory Manager]
-        APP[Approval Engine]
-    end
-
-    subgraph Operations[MLOps/LLMOps]
-        REG[Model Registry]
-        EXP[Experiment Tracking]
-        EVAL[Evaluation Suite]
-        MON[Monitoring]
-        DEPLO[Deployment Pipeline]
-    end
-
-    DataLayer --> AIServices
-    AIServices --> Orchestration
-    Orchestration <--> Operations
-```
-
-#### 3.3.2. Feature Store Architecture
-
-**Mục đích**: Centralized repository cho ML features với consistency giữa training và serving
-
-```
-┌──────────────────────────────────────────────────┐
-│  Feature Definition & Transformation Logic       │
-│  - Feature computation code                      │
-│  - Data quality checks                          │
-│  - Versioning                                   │
-└──────────────────────────────────────────────────┘
-                    ↓
-┌──────────────────────────────────────────────────┐
-│  Offline Store (Training)                        │
-│  - Historical features                           │
-│  - Point-in-time correct                        │
-│  - Batch computation                            │
-│  Storage: Data Lake, Data Warehouse             │
-└──────────────────────────────────────────────────┘
-                    ↓
-┌──────────────────────────────────────────────────┐
-│  Online Store (Serving)                          │
-│  - Low latency access (<10ms)                   │
-│  - Latest feature values                        │
-│  - Real-time updates                            │
-│  Storage: Redis, DynamoDB                       │
-└──────────────────────────────────────────────────┘
-```
-
-**Key benefits**:
-- **Consistency**: Training-serving skew eliminated
-- **Reusability**: Features shared across models
-- **Governance**: Lineage và ownership tracking
-
-#### 3.3.3. AI Harness - Orchestration Layer
-
-**State Machine cho AI Runs**:
-
-```
-pending → classifying → planning → awaiting_approval
-                                         ↓
-                                    executing
-                                         ↓
-                              waiting_external ← → executing
-                                         ↓
-                                  synthesizing
-                                         ↓
-                                    completed
-```
-
-**Core components**:
-
-1. **Session Management**
-   ```python
-   Session:
-     - id: UUID
-     - channel: str (web, api, telegram)
-     - context: Dict
-     - created_at: timestamp
-     - last_activity: timestamp
-   ```
-
-2. **Run Tracking**
-   ```python
-   Run:
-     - id: UUID
-     - session_id: UUID
-     - task_type: str
-     - strategy: str
-     - model: str
-     - status: str
-     - metrics: {latency, tokens, cost}
-   ```
-
-3. **Tool Harness**
-   ```python
-   Tool:
-     - name: str
-     - schema: JSONSchema
-     - timeout: int
-     - retry_policy: RetryConfig
-     - requires_approval: bool
-     - side_effect_level: Enum
-   ```
-
-4. **Approval Workflow**
-   ```python
-   Approval:
-     - run_id: UUID
-     - action_type: str
-     - risk_level: Enum
-     - status: pending | approved | denied
-     - approver: Optional[str]
-   ```
-
-### 3.4. IoT/IoMT Specific Architecture
-
-#### 3.4.1. Device Connectivity Layer
-
-```mermaid
-flowchart TB
-    subgraph Edge
-        DEV[Medical Devices<br/>BP, Glucose, ECG]
-        GW[Gateway<br/>Mobile App, Home Hub]
-    end
-
-    subgraph Ingress
-        LB[Load Balancer<br/>Geographic Distribution]
-        MQTT[MQTT Broker Cluster]
-        HTTPS[HTTPS Ingestion API]
-    end
-
-    subgraph Auth
-        DVC[Device Registry]
-        IAM[Identity & Access]
-    end
-
-    subgraph Backbone
-        EVT[Event Bus]
-        RAW[raw-telemetry topic]
-        CMD[command topic]
-    end
-
-    DEV --> GW
-    GW --> LB
-    LB --> MQTT & HTTPS
-    MQTT & HTTPS --> Auth
-    Auth --> EVT
-    EVT --> RAW & CMD
-```
-
-**Dual Ingress Rationale**:
-
-| Protocol | Use Case | Characteristics |
-|----------|----------|-----------------|
-| **MQTT** | Long-lived connections, IoT devices | Lightweight, pub/sub, QoS levels |
-| **HTTPS** | Mobile apps, batch sync | Request/response, standard tooling |
-
-**Decision**: Support both để maximize device compatibility
-
-#### 3.4.2. Time-Series Data Strategy
-
-**Hot vs Cold Path**:
-
-```
-┌────────────────────────────────────────┐
-│  Ingestion (Event Backbone)            │
-└────────────┬───────────────────────────┘
-             │
-        ┌────┴─────┐
-        ↓          ↓
-┌──────────┐  ┌──────────────────┐
-│ Hot Path │  │   Cold Path      │
-│          │  │                  │
-│ TSDB     │  │ Object Storage   │
-│ (30-90d) │  │ (Parquet/ORC)    │
-│          │  │                  │
-│ Dashboard│  │ Analytics        │
-│ Alerting │  │ ML Training      │
-│ Real-time│  │ Compliance       │
-└──────────┘  └──────────────────┘
-```
-
-**Partitioning Strategy**:
-- By time: daily/hourly partitions
-- By tenant: multi-tenancy isolation
-- By device type: optimize query patterns
-
-**Retention Policy**:
-- Hot: 30-90 days (configurable by tenant)
-- Cold: 7+ years (regulatory compliance)
-
-### 3.5. Security Architecture
-
-#### 3.5.1. Defense in Depth
-
-```
-┌─────────────────────────────────────────────────┐
-│  Layer 1: Network Security                      │
-│  - VPC isolation                                │
-│  - Security groups                              │
-│  - WAF for public endpoints                    │
-└─────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────┐
-│  Layer 2: Identity & Access                     │
-│  - Device certificates (IoT)                    │
-│  - OAuth/OIDC (users)                          │
-│  - Service-to-service auth                     │
-│  - Multi-tenant isolation                      │
-└─────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────┐
-│  Layer 3: Data Protection                       │
-│  - TLS in-transit                              │
-│  - Encryption at-rest                          │
-│  - Field-level encryption (PII/PHI)            │
-│  - Tokenization/pseudonymization               │
-└─────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────┐
-│  Layer 4: Application Security                  │
-│  - Input validation                            │
-│  - SQL injection prevention                    │
-│  - XSS protection                              │
-│  - Rate limiting                               │
-└─────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────┐
-│  Layer 5: Audit & Compliance                    │
-│  - Immutable audit logs                        │
-│  - Access logging                              │
-│  - Data lineage                                │
-│  - Compliance reporting                        │
-└─────────────────────────────────────────────────┘
-```
-
-#### 3.5.2. Multi-Tenancy Isolation
-
-**Isolation Levels**:
-
-1. **Data isolation**
-   ```sql
-   -- Row-level security in PostgreSQL
-   CREATE POLICY tenant_isolation ON measurements
-     USING (tenant_id = current_setting('app.current_tenant')::uuid);
-   ```
-
-2. **Compute isolation**
-   - Separate consumer groups per tenant (large tenants)
-   - Shared consumers with tenant filtering (small tenants)
-
-3. **Network isolation**
-   - VPC per environment
-   - Subnet isolation for tiers
+- schema hợp lệ;
+- required tags đã đủ;
+- owner/steward đã khai báo;
+- DQ suite đạt ngưỡng;
+- lineage hook hoạt động;
+- policy truy cập đã gắn;
+- retention và masking policy đã định nghĩa nếu dữ liệu nhạy cảm.
 
 ---
 
-## 4. Non-Functional Requirements
+## 8. Luồng triển khai và vận hành
 
-### 4.1. Performance
+### 8.1. Onboard một nguồn dữ liệu mới
 
-| Metric | Target | Measurement Method |
-|--------|--------|-------------------|
-| **API latency (p95)** | <200ms | Application metrics |
-| **API latency (p99)** | <500ms | Application metrics |
-| **Ingestion throughput** | 10K+ events/sec | Kafka metrics |
-| **Query response time** | <3s for dashboard | APM tracing |
-| **Batch processing SLA** | <1 hour for daily jobs | Airflow/scheduler |
+```mermaid
+sequenceDiagram
+  autonumber
+  participant O as Domain Owner
+  participant E as Data Engineer
+  participant G as Governance Platform
+  participant I as Ingestion Layer
+  participant L as Lakehouse / Storage
+  participant C as Consumers
 
-### 4.2. Availability
-
-| Component | Target SLA | Architecture Pattern |
-|-----------|-----------|---------------------|
-| **Ingestion path** | 99.9% | Multi-AZ, auto-scaling |
-| **API layer** | 99.9% | Load balanced, stateless |
-| **Data platform** | 99.5% | HA database, replicas |
-| **Batch processing** | 95% | Retry logic, DLQ |
-
-**Downtime budget**:
-- 99.9% = ~43 minutes/month
-- 99.5% = ~3.6 hours/month
-
-### 4.3. Scalability
-
-**Horizontal scaling targets**:
-
-```
-Current → Target (12 months)
-─────────────────────────────
-Users:        100K → 1M
-Devices:      100K → 1M
-Events/sec:   1K   → 10K
-Data volume:  10TB → 100TB
-API RPS:      1K   → 10K
+  O->>G: Đăng ký use case và purpose
+  E->>G: Khai báo dataset, owner, steward, classification
+  E->>G: Đăng ký schema contract và compatibility rule
+  G-->>E: Trả về mandatory tags, policy, DQ baseline
+  E->>I: Triển khai connector batch / CDC / stream
+  I->>L: Land dữ liệu vào Raw kèm metadata
+  E->>L: Build transform sang Standardized / Curated
+  G->>L: Attach DQ rules, lineage hooks, audit hooks
+  L-->>G: Emit quality result, lineage, usage log
+  G-->>C: Publish trusted dataset hoặc từ chối publish
 ```
 
-**Scaling dimensions**:
-1. **Compute**: Kubernetes autoscaling
-2. **Storage**: Partitioning, tiering
-3. **Network**: CDN, edge caching
-4. **Database**: Read replicas, sharding
-
-### 4.4. Disaster Recovery
-
-**RTO/RPO Targets**:
-
-| Data Tier | RPO | RTO | Backup Strategy |
-|-----------|-----|-----|----------------|
-| **Transactional DB** | <15 min | <1 hour | Continuous replication |
-| **Time-series DB** | <1 hour | <4 hours | Periodic snapshots |
-| **Data Lake** | <24 hours | <24 hours | Cross-region replication |
-| **Config/metadata** | 0 | <30 min | GitOps, IaC |
-
-**DR Strategy**:
-- Primary region: Active serving
-- Secondary region: Hot standby
-- Tertiary: Backup/archive
-
----
-
-## 5. Observability Strategy
-
-### 5.1. Three Pillars
+### 8.2. Access dữ liệu qua query hoặc API
 
 ```mermaid
 flowchart LR
-    subgraph Metrics
-        M1[System Metrics<br/>CPU, Memory, Disk]
-        M2[Application Metrics<br/>Latency, Errors, Throughput]
-        M3[Business Metrics<br/>Active Users, Ingestion Rate]
+  U[User / Service] --> A[Access Layer\nSQL / API / Export]
+  A --> P[Policy Engine]
+  P --> M[Metadata & Tags]
+  P --> C[Consent / Purpose Context]
+  P --> A
+  A --> D[(Trusted Dataset)]
+  A --> L[Audit Log]
+```
+
+Policy engine nên trả về không chỉ **allow / deny** mà còn có thể trả về **obligations** như:
+
+- masking cột nhạy cảm,
+- row-level filter theo tenant hoặc region,
+- limit export,
+- bắt buộc justification,
+- time-bound access.
+
+---
+
+## 9. Kiến trúc triển khai tham chiếu
+
+### 9.1. Sơ đồ triển khai logic
+
+```mermaid
+flowchart TB
+  subgraph Sources[Data Sources]
+    S1[OLTP Apps]
+    S2[SaaS / Partner APIs]
+    S3[Files / Documents]
+    S4[Events / CDC / Streams]
+  end
+
+  subgraph Ingest[Ingestion]
+    I1[Batch / ELT]
+    I2[CDC Connectors]
+    I3[Streaming Collectors]
+    I4[Schema Validation]
+  end
+
+  subgraph Platform[Data Platform]
+    P1[Object Storage / Lakehouse]
+    P2[Streaming Backbone]
+    P3[Transform Compute]
+    P4[Serving Stores / Query Engine]
+  end
+
+  subgraph Governance[Governance Services]
+    G1[Catalog]
+    G2[Policy Engine]
+    G3[Metadata Store]
+    G4[Lineage Service]
+    G5[Data Quality Service]
+    G6[Audit Store]
+  end
+
+  subgraph Access[Consumption]
+    A1[BI / Analytics]
+    A2[Operational APIs]
+    A3[Data Products]
+    A4[AI / ML]
+  end
+
+  Sources --> Ingest
+  Ingest --> Platform
+  Governance <--> Platform
+  Governance <--> Access
+  Platform --> Access
+```
+
+### 9.2. Sơ đồ triển khai hạ tầng điển hình
+
+```mermaid
+flowchart TB
+  subgraph Region[Primary Region]
+    subgraph Edge[Ingress Tier]
+      E1[API Gateway]
+      E2[Stream / CDC Ingress]
     end
 
-    subgraph Logs
-        L1[Application Logs]
-        L2[Access Logs]
-        L3[Audit Logs]
+    subgraph Compute[Processing Tier]
+      C1[Transform Jobs]
+      C2[DQ Executors]
+      C3[Lineage Extractors]
+      C4[Policy Service]
     end
 
-    subgraph Traces
-        T1[Distributed Tracing]
-        T2[Request Flow]
-        T3[Dependency Mapping]
+    subgraph Storage[Storage Tier]
+      S1[(Metadata DB)]
+      S2[(Audit Store)]
+      S3[(Object Storage / Lakehouse)]
+      S4[(Serving DB / Query Engine)]
+      S5[(Message Broker)]
     end
 
-    Metrics --> Dashboard[Grafana Dashboards]
-    Logs --> Search[Log Aggregation]
-    Traces --> APM[APM Tool]
+    subgraph Control[Governance UI / APIs]
+      G1[Catalog UI]
+      G2[Stewardship API]
+      G3[Access Review Console]
+    end
+  end
+
+  Edge --> Compute
+  Compute --> Storage
+  Control --> Storage
+  Control --> Compute
 ```
 
-### 5.2. Golden Signals
+### 9.3. Thành phần tối thiểu để chạy production
 
-**Per service**:
-1. **Latency**: How long requests take
-2. **Traffic**: How much demand
-3. **Errors**: Rate of failed requests
-4. **Saturation**: How full is the service
-
-**Telemetry Pipeline-specific**:
-1. **Ingestion rate**: Events/second
-2. **Consumer lag**: Event backlog
-3. **Processing latency**: Time from ingest to materialization
-4. **Data quality**: % of valid events
-
-### 5.3. Alerting Strategy
-
-**Alert Levels**:
-
-| Level | Response Time | Examples |
-|-------|---------------|----------|
-| **P0 - Critical** | Immediate | Data loss, system down |
-| **P1 - High** | <15 min | Degraded performance, high error rate |
-| **P2 - Medium** | <1 hour | Elevated latency, capacity warnings |
-| **P3 - Low** | <24 hours | Anomalies, optimization opportunities |
-
-**Alert fatigue prevention**:
-- Use SLO-based alerting
-- Group related alerts
-- Auto-resolve when conditions clear
-- Regular alert review and tuning
+| Nhóm | Thành phần tối thiểu |
+|---|---|
+| Metadata | catalog, metadata DB, glossary, ownership registry |
+| Policy | IAM integration, policy engine, masking / row filter support |
+| Quality | rule registry, execution engine, scorecard, incident hooks |
+| Lineage | job metadata capture, dataset lineage graph, version tracking |
+| Audit | access log, policy decision log, export log, admin action log |
+| Data platform | ingestion, lakehouse or warehouse, transform engine, serving layer |
 
 ---
 
-## 6. Cost Management
+## 10. Use case chính mà mô hình này giải quyết
 
-### 6.1. Cost Breakdown
+### 10.1. Self-service analytics có kiểm soát
 
-**Typical cost distribution** (example for cloud deployment):
+- Business có thể tự truy cập trusted datasets.
+- Quyền truy cập được kiểm soát theo role, tenant, purpose.
+- Cột nhạy cảm bị mask tự động nếu người dùng không đủ clearance.
 
-```
-Compute:           35-40%
-  - Application servers
-  - Stream processors
-  - ML training
+### 10.2. Chứng nhận dữ liệu dùng cho báo cáo quản trị
 
-Storage:           30-35%
-  - Hot storage (DB, cache)
-  - Cold storage (object storage)
-  - Backup retention
+- Chỉ dataset đạt đủ quality gate mới được gắn nhãn certified.
+- Dashboard và báo cáo chỉ đọc từ trusted zone.
+- Khi có incident, lineage chỉ ra báo cáo nào bị ảnh hưởng.
 
-Data Transfer:     10-15%
-  - Inter-region
-  - Egress to internet
+### 10.3. Data sharing nội bộ và với đối tác
 
-AI/ML Services:    15-20%
-  - LLM API calls
-  - Model inference
-  - Feature computation
-```
+- Chia sẻ theo data product thay vì dump raw tables.
+- Áp dụng contract, retention và export logging.
+- Có thể dùng entitlement theo tenant hoặc theo hợp đồng.
 
-### 6.2. Cost Optimization Strategies
+### 10.4. Kiểm soát PII / dữ liệu nhạy cảm
 
-1. **Storage Tiering**
-   - Hot → Warm → Cold based on access patterns
-   - Lifecycle policies for automatic transition
+- Tự động phân loại trường dữ liệu nhạy cảm.
+- Buộc masking hoặc tokenization khi dữ liệu đi ra ngoài boundary.
+- Ghi audit cho mọi truy cập và export.
 
-2. **Compute Right-Sizing**
-   - Auto-scaling based on demand
-   - Spot/preemptible instances for batch workloads
+### 10.5. Điều tra sự cố dữ liệu
 
-3. **Data Transfer Optimization**
-   - Regional data locality
-   - Compression for large payloads
-   - CDN for static assets
+- Khi phát hiện sai số, có thể lần theo lineage để tìm upstream job hoặc source gây lỗi.
+- Có quarantine, rollback, replay và postmortem.
 
-4. **AI Cost Management**
-   - Prompt optimization (reduce tokens)
-   - Model selection (cost vs performance)
-   - Caching for repeated queries
-   - Batch inference where possible
+### 10.6. Hỗ trợ AI / ML / Search trên dữ liệu govern
+
+- Chỉ dữ liệu đã classify, có policy và quality rõ ràng mới được publish sang AI/ML workloads.
+- Dễ xác định dữ liệu nào được phép dùng cho training, retrieval hoặc feature serving.
 
 ---
 
-## 7. Production Readiness Checklist
+## 11. Data quality và observability
 
-### 7.1. Platform Engineering
+### 11.1. Phân loại DQ rules
 
-- [ ] **Infrastructure as Code**: All infrastructure versioned
-- [ ] **CI/CD Pipeline**: Automated build, test, deploy
-- [ ] **Environment Parity**: Dev/staging/prod consistency
-- [ ] **Secret Management**: Vault/KMS for credentials
-- [ ] **Network Security**: VPC, security groups, WAF
-- [ ] **Backup & Restore**: Tested recovery procedures
-- [ ] **Disaster Recovery**: DR plan documented and tested
+| Nhóm | Ví dụ |
+|---|---|
+| Validity | type, regex, range |
+| Completeness | null rate, missing partitions |
+| Uniqueness | duplicate key, dedup drift |
+| Consistency | cross-table reconciliation |
+| Timeliness | freshness, arrival lag |
+| Accuracy | so khớp với source chuẩn |
+| Volume | anomaly về số bản ghi |
 
-### 7.2. Application Engineering
+### 11.2. Mô hình phản ứng sự cố dữ liệu
 
-- [ ] **Health Checks**: Liveness, readiness probes
-- [ ] **Graceful Shutdown**: Clean connection draining
-- [ ] **Circuit Breakers**: Fault isolation patterns
-- [ ] **Retry Logic**: Exponential backoff implemented
-- [ ] **Timeout Configuration**: All external calls bounded
-- [ ] **Rate Limiting**: Protection against abuse
-- [ ] **Input Validation**: Defense against injection
-
-### 7.3. Data Engineering
-
-- [ ] **Schema Validation**: Enforce data contracts
-- [ ] **Data Quality Rules**: Automated checks
-- [ ] **Idempotency**: Duplicate handling
-- [ ] **Late Data Handling**: Out-of-order events
-- [ ] **Data Lineage**: Track data flow
-- [ ] **PII/PHI Protection**: Encryption, masking
-- [ ] **Retention Policies**: Automated cleanup
-
-### 7.4. AI/ML Engineering
-
-- [ ] **Model Versioning**: Track model changes
-- [ ] **Feature Versioning**: Feature store lineage
-- [ ] **Experiment Tracking**: A/B test framework
-- [ ] **Evaluation Suite**: Automated quality checks
-- [ ] **Prompt Management**: Version control for prompts
-- [ ] **Cost Tracking**: Token usage monitoring
-- [ ] **Approval Workflow**: Sensitive action gates
-
-### 7.5. Observability
-
-- [ ] **Metrics Collection**: All services instrumented
-- [ ] **Log Aggregation**: Centralized logging
-- [ ] **Distributed Tracing**: End-to-end visibility
-- [ ] **Dashboards**: Key metrics visualized
-- [ ] **Alerts**: SLO-based alerting configured
-- [ ] **On-Call Runbooks**: Incident response documented
-- [ ] **Post-Mortem Process**: Learning from incidents
-
----
-
-## 8. Deployment Patterns
-
-### 8.1. Multi-Region Strategy
-
-```
-┌─────────────────────────────────────────────────┐
-│              Global Load Balancer               │
-│         (DNS-based or Anycast routing)          │
-└────────────┬────────────────────┬────────────────┘
-             │                    │
-    ┌────────▼────────┐   ┌───────▼────────┐
-    │  Region A       │   │  Region B      │
-    │  (Primary)      │   │  (Secondary)   │
-    │                 │   │                │
-    │  Active-Active  │◄─►│  Active-Active │
-    │  for reads      │   │  for reads     │
-    │                 │   │                │
-    │  Active-Passive │──►│  Hot Standby   │
-    │  for writes     │   │  for DR        │
-    └─────────────────┘   └────────────────┘
+```mermaid
+flowchart TB
+  M[Monitoring / DQ breach] --> I[Create incident]
+  I --> T[Triage: source, pipeline, policy, serving]
+  T --> Q[Quarantine affected data]
+  T --> R[Rollback / Reprocess]
+  R --> V[Verify quality and lineage]
+  V --> C[Re-certify and close incident]
 ```
 
-**Trade-offs**:
-- **Active-Active**: Better availability, eventual consistency complexity
-- **Active-Passive**: Simpler consistency, higher RTO
+### 11.3. Chỉ số nên đo thường xuyên
 
-### 8.2. Blue-Green Deployment
-
-```
-┌─────────────────────────────────────────┐
-│         Load Balancer                   │
-└────────┬──────────────────┬─────────────┘
-         │                  │
-    ┌────▼────┐        ┌────▼────┐
-    │  Blue   │        │  Green  │
-    │ (Live)  │        │ (Idle)  │
-    └─────────┘        └─────────┘
-         │                  ↑
-         │                  │
-    [Deploy & Test] ─────────┘
-         │
-         ↓
-    [Switch Traffic]
-```
-
-**Benefits**:
-- Zero-downtime deployment
-- Instant rollback
-- Full production validation before switch
-
-### 8.3. Canary Deployment
-
-```
-┌────────────────────────────────┐
-│      Load Balancer             │
-└──┬────────────────────┬────────┘
-   │                    │
-   │ 95%                │ 5%
-   ↓                    ↓
-┌──────────┐      ┌──────────┐
-│ Stable   │      │ Canary   │
-│ v1.0     │      │ v1.1     │
-└──────────┘      └──────────┘
-```
-
-**Progressive rollout**:
-1. 5% → monitor metrics
-2. 25% → validate quality
-3. 50% → assess at scale
-4. 100% → full rollout
+- số dataset đã có owner/steward;
+- tỷ lệ dataset có classification đầy đủ;
+- tỷ lệ trusted datasets có SLA và DQ suite;
+- số policy violations;
+- số access request pending quá hạn;
+- số incident chất lượng theo domain;
+- độ phủ lineage upstream/downstream;
+- số export chứa dữ liệu nhạy cảm.
 
 ---
 
-## 9. Technology Stack Recommendations
+## 12. Security, privacy và compliance
 
-### 9.1. Core Infrastructure
+### 12.1. Mức phân loại gợi ý
 
-| Layer | Technology Options | Selection Criteria |
-|-------|-------------------|-------------------|
-| **Container Orchestration** | Kubernetes | Industry standard, ecosystem |
-| **Service Mesh** | Istio, Linkerd | Traffic management, security |
-| **Load Balancing** | Nginx, HAProxy, Cloud LB | Performance, features |
-| **API Gateway** | Kong, Tyk, AWS API Gateway | Extensibility, integration |
+| Level | Ý nghĩa | Kiểm soát đi kèm |
+|---|---|---|
+| Public | có thể chia sẻ công khai | basic integrity |
+| Internal | nội bộ, không quá nhạy cảm | authenticated access |
+| Confidential | nhạy cảm | need-to-know, audit, masking |
+| Restricted | rất nhạy cảm | approval, strong isolation, export control |
 
-### 9.2. Data Infrastructure
+### 12.2. Policy patterns nên hỗ trợ
 
-| Component | Technology Options | Trade-offs |
-|-----------|-------------------|-----------|
-| **Event Backbone** | Kafka, Pulsar, AWS Kinesis | Kafka: mature; Pulsar: multi-tenancy; Kinesis: managed |
-| **OLTP Database** | PostgreSQL, MySQL, CockroachDB | PostgreSQL: feature-rich; CockroachDB: distributed |
-| **Time-Series DB** | TimescaleDB, ClickHouse, InfluxDB | TimescaleDB: SQL; ClickHouse: analytics; InfluxDB: purpose-built |
-| **Cache** | Redis, Memcached | Redis: rich features; Memcached: simplicity |
-| **Object Storage** | S3, MinIO, GCS | S3: standard; MinIO: self-hosted |
-| **Data Lake** | Delta Lake, Iceberg, Hudi | Delta: Databricks; Iceberg: open; Hudi: upserts |
+- **RBAC** theo role nghiệp vụ;
+- **ABAC** theo tenant, region, environment, clearance;
+- **Purpose-based access** theo mục đích sử dụng;
+- **Time-bound access** theo ticket hoặc approval window;
+- **Row-level security** cho multi-tenant hoặc phân vùng pháp lý;
+- **Column masking** cho PII/PHI/tài chính;
+- **Export guardrails** cho dữ liệu khối lượng lớn hoặc dữ liệu restricted.
 
-### 9.3. AI/ML Infrastructure
+### 12.3. Audit bắt buộc
 
-| Component | Technology Options | Use Case |
-|-----------|-------------------|----------|
-| **ML Framework** | PyTorch, TensorFlow, Scikit-learn | PyTorch: research; TF: production; Sklearn: classical ML |
-| **LLM Serving** | vLLM, TGI, OpenAI API | vLLM: self-hosted; OpenAI: managed |
-| **Vector DB** | Pinecone, Weaviate, Milvus | Pinecone: managed; Weaviate/Milvus: self-hosted |
-| **Feature Store** | Feast, Tecton | Feast: open-source; Tecton: enterprise |
-| **MLOps** | MLflow, Kubeflow, SageMaker | MLflow: lightweight; Kubeflow: k8s-native; SageMaker: AWS |
-
-### 9.4. Observability Stack
-
-| Component | Technology Options |
-|-----------|-------------------|
-| **Metrics** | Prometheus + Grafana, Datadog, New Relic |
-| **Logs** | ELK Stack, Loki, CloudWatch Logs |
-| **Tracing** | Jaeger, Zipkin, Datadog APM |
-| **APM** | Datadog, New Relic, Dynatrace |
+- ai truy cập dataset nào;
+- vào thời điểm nào;
+- bằng cơ chế nào;
+- policy nào đã được áp dụng;
+- có masking / filtering hay không;
+- có export / download hay không;
+- thay đổi nào đã được thực hiện trên policy, tags, contracts.
 
 ---
 
-## 10. Migration & Adoption Strategy
+## 13. Trade-offs kiến trúc quan trọng
 
-### 10.1. Phased Approach
+### 13.1. Governance tập trung vs domain federated
 
-**Phase 1: Foundation** (3-6 months)
-- [ ] Core data platform setup
-- [ ] Basic ingestion pipelines
-- [ ] Single source of truth established
-- [ ] Initial governance framework
+| Lựa chọn | Ưu điểm | Nhược điểm |
+|---|---|---|
+| Tập trung mạnh | chuẩn hóa nhanh, kiểm soát chặt | bottleneck, xa nghiệp vụ |
+| Federated theo domain | domain ownership rõ, scale tổ chức tốt | khó đồng nhất nếu platform yếu |
 
-**Phase 2: Expand Capabilities** (6-12 months)
-- [ ] Advanced analytics enabled
-- [ ] First ML models in production
-- [ ] Self-service BI for business users
-- [ ] Data quality monitoring automated
+**Khuyến nghị**: platform tập trung cho control plane, ownership phân tán cho từng domain.
 
-**Phase 3: AI Integration** (12-18 months)
-- [ ] GenAI applications deployed
-- [ ] AI harness for production orchestration
-- [ ] Vector search and RAG operational
-- [ ] Cost optimization implemented
+### 13.2. Block publish vs cảnh báo mềm khi DQ fail
 
-**Phase 4: Scale & Optimize** (18-24 months)
-- [ ] Multi-region deployment
-- [ ] Advanced automation
-- [ ] Full observability coverage
-- [ ] Continuous optimization
+| Lựa chọn | Ưu điểm | Nhược điểm |
+|---|---|---|
+| Hard gate | bảo vệ downstream tốt | có thể chặn nghiệp vụ |
+| Soft gate | linh hoạt, giảm gián đoạn | downstream dễ dùng dữ liệu lỗi |
 
-### 10.2. Risk Mitigation
+**Khuyến nghị**: trusted zone dùng hard gate; curated zone có thể soft gate theo rủi ro.
 
-| Risk | Mitigation Strategy |
-|------|---------------------|
-| **Data quality issues** | Start with data profiling; implement quality gates early |
-| **Vendor lock-in** | Use open standards; abstractable interfaces |
-| **Skill gap** | Training programs; hire experienced leads |
-| **Scope creep** | Clear MVP definition; iterative delivery |
-| **Performance issues** | Load testing early; capacity planning |
-| **Security breaches** | Security by design; regular audits |
+### 13.3. Dataset-level lineage vs column-level lineage
 
----
+| Lựa chọn | Ưu điểm | Nhược điểm |
+|---|---|---|
+| Dataset-level | triển khai nhanh, đủ cho nhiều use case | chưa đủ cho PII tracing sâu |
+| Column-level | phân tích tác động rất tốt | tốn công, khó bền nếu parser kém |
 
-## 11. Key Architectural Decisions (ADRs)
+**Khuyến nghị**: bắt đầu dataset-level, mở rộng column-level cho vùng dữ liệu nhạy cảm.
 
-### ADR-001: Event-Driven Architecture as Core Pattern
+### 13.4. Exactly-once vs at-least-once + idempotency
 
-**Context**: Need loose coupling, scalability, and replay capability
+| Lựa chọn | Ưu điểm | Nhược điểm |
+|---|---|---|
+| Exactly-once | đúng về mặt lý thuyết | đắt và phức tạp hơn |
+| At-least-once + idempotent | thực dụng, hiệu năng tốt | cần kỷ luật dedup và idempotency |
 
-**Decision**: Adopt event backbone (Kafka/Pulsar) as central integration pattern
+**Khuyến nghị**: đa số hệ lớn nên chọn at-least-once + idempotent processing.
 
-**Consequences**:
-- ✅ Better scalability and resilience
-- ✅ Replay and audit capabilities
-- ❌ Increased operational complexity
-- ❌ Eventual consistency considerations
+### 13.5. Một kho dữ liệu duy nhất vs polyglot storage
 
-### ADR-002: Separate Operational and Analytical Stores
+| Lựa chọn | Ưu điểm | Nhược điểm |
+|---|---|---|
+| Một hệ lưu trữ | đơn giản hơn | khó tối ưu cho nhiều workload |
+| Polyglot storage | tối ưu theo access pattern | tăng độ phức tạp vận hành |
 
-**Context**: Different access patterns for OLTP vs OLAP workloads
-
-**Decision**: Use specialized stores (PostgreSQL for OLTP, data lake for OLAP)
-
-**Consequences**:
-- ✅ Optimized performance for each workload
-- ✅ Independent scaling
-- ❌ Data synchronization overhead
-- ❌ Multiple storage systems to manage
-
-### ADR-003: Multi-Zone Data Lakehouse
-
-**Context**: Need data quality gates and traceability
-
-**Decision**: Implement Raw → Standardized → Curated → Trusted zones
-
-**Consequences**:
-- ✅ Clear data maturity levels
-- ✅ Replay capability
-- ✅ Quality enforcement
-- ❌ Additional storage cost
-- ❌ More complex pipeline logic
-
-### ADR-004: At-Least-Once + Idempotent Processing
-
-**Context**: Balance between correctness and operational simplicity
-
-**Decision**: Accept duplicates at ingestion; enforce idempotency downstream
-
-**Consequences**:
-- ✅ Simpler to operate than exactly-once
-- ✅ Better performance
-- ❌ Requires disciplined idempotency implementation
-- ❌ Deduplication logic needed
-
-### ADR-005: AI Harness for Production Orchestration
-
-**Context**: Need controlled, observable AI operations in production
-
-**Decision**: Build orchestration layer with approval, memory, and observability
-
-**Consequences**:
-- ✅ Production-grade AI deployment
-- ✅ Audit and compliance support
-- ✅ Cost and quality tracking
-- ❌ Additional development effort
-- ❌ Learning curve for teams
+**Khuyến nghị**: governance phải độc lập với engine lưu trữ để hỗ trợ nhiều loại storage.
 
 ---
 
-## 12. Conclusion
+## 14. Lộ trình triển khai thực dụng
 
-Các tài liệu kiến trúc trong repository này đại diện cho một **opinionated, production-tested approach** cho việc xây dựng data platform, AI platform và IoT platform ở quy mô enterprise.
+### Giai đoạn 1: Foundation
 
-### 12.1. Các nguyên tắc xuyên suốt
+- chuẩn hóa classification model;
+- thiết lập catalog, ownership và glossary;
+- định nghĩa metadata schema tối thiểu;
+- chọn trusted datasets đầu tiên;
+- tích hợp audit cho access path.
 
-1. **Platform thinking**: Xây dựng nền tảng tái sử dụng, không phải point solutions
-2. **Governance integrated**: Bảo mật, audit, quality từ đầu
-3. **Event-driven**: Loose coupling, scalability, traceability
-4. **Layered architecture**: Separation of concerns rõ ràng
+### Giai đoạn 2: Enforcement
 
-### 12.2. Khi nào nên áp dụng
+- đưa policy engine vào query/API path;
+- đưa DQ suite vào pipeline promotion;
+- bắt đầu lineage dataset-level;
+- đưa access request vào workflow có SLA.
 
-Các kiến trúc này phù hợp khi:
+### Giai đoạn 3: Scale
 
-- ✅ Quy mô người dùng/thiết bị > 100K
-- ✅ Dữ liệu từ nhiều nguồn phân tán
-- ✅ Yêu cầu real-time/near-real-time processing
-- ✅ Cần governance và compliance chặt chẽ
-- ✅ Triển khai AI/ML vào production
-- ✅ Multi-tenancy và isolation requirements
+- mở rộng domain onboarding theo template;
+- scorecard theo domain;
+- self-service catalog và access review;
+- retention, purge, export control tự động hóa.
 
-### 12.3. Khi nào không nên áp dụng
+### Giai đoạn 4: Advanced governance
 
-Tránh over-engineering nếu:
-
-- ❌ Quy mô nhỏ (<10K users)
-- ❌ Single-tenant, simple use case
-- ❌ Prototyping/MVP phase
-- ❌ Limited engineering resources
-- ❌ Short-term project
-
-### 12.4. Tiếp theo
-
-1. **Đọc chi tiết**: Xem các tài liệu kỹ thuật cụ thể trong repository
-2. **Đánh giá**: So sánh với requirements của hệ thống bạn
-3. **Adaptation**: Điều chỉnh cho phù hợp với context cụ thể
-4. **Implementation**: Bắt đầu với MVP, iterate dần
+- column-level lineage cho dữ liệu nhạy cảm;
+- policy-as-code;
+- data product contracts;
+- governance cho AI/ML workloads;
+- compliance reporting tự động.
 
 ---
 
-## Appendix A: Glossary
+## 15. Checklist sẵn sàng triển khai
 
-| Term | Definition |
-|------|------------|
-| **CDC** | Change Data Capture - pattern để capture database changes |
-| **Data Lakehouse** | Hybrid architecture combining data lake và data warehouse benefits |
-| **DR** | Disaster Recovery |
-| **ELT** | Extract, Load, Transform |
-| **ETL** | Extract, Transform, Load |
-| **GenAI** | Generative AI |
-| **HA** | High Availability |
-| **IAM** | Identity and Access Management |
-| **IoMT** | Internet of Medical Things |
-| **LLM** | Large Language Model |
-| **MLOps** | Machine Learning Operations |
-| **OLAP** | Online Analytical Processing |
-| **OLTP** | Online Transaction Processing |
-| **RAG** | Retrieval Augmented Generation |
-| **RPO** | Recovery Point Objective - maximum acceptable data loss |
-| **RTO** | Recovery Time Objective - maximum acceptable downtime |
-| **SLA** | Service Level Agreement |
-| **SLO** | Service Level Objective |
-| **TSDB** | Time-Series Database |
-
-## Appendix B: References
-
-### Industry Standards & Best Practices
-- [AWS Well-Architected Framework](https://aws.amazon.com/architecture/well-architected/)
-- [Google Cloud Architecture Framework](https://cloud.google.com/architecture/framework)
-- [The Twelve-Factor App](https://12factor.net/)
-- [CNCF Cloud Native Trail Map](https://github.com/cncf/trailmap)
-
-### Data Architecture
-- Martin Kleppmann: "Designing Data-Intensive Applications"
-- Ralph Kimball: "The Data Warehouse Toolkit"
-- Data Mesh principles by Zhamak Dehghani
-
-### Event-Driven Architecture
-- "Building Event-Driven Microservices" - Adam Bellemare
-- Kafka: The Definitive Guide
-- "Enterprise Integration Patterns" - Gregor Hohpe
-
-### AI/ML in Production
-- "Building Machine Learning Powered Applications" - Emmanuel Ameisen
-- "Introducing MLOps" - Mark Treveil et al.
-- "Designing Machine Learning Systems" - Chip Huyen
+- [ ] Có mô hình classification và sensitive tags thống nhất
+- [ ] Mọi dataset quan trọng có owner và steward
+- [ ] Có metadata schema tối thiểu áp dụng toàn platform
+- [ ] Có contract registration cho nguồn dữ liệu mới
+- [ ] Có quality gate trước khi publish trusted dataset
+- [ ] Có lineage tối thiểu cho ingest và transform chính
+- [ ] Có policy engine tích hợp vào access path
+- [ ] Có audit log cho read, export và admin actions
+- [ ] Có quy trình incident dữ liệu và quarantine
+- [ ] Có retention, archive và delete policy theo loại dữ liệu
+- [ ] Có scorecard đo độ phủ governance theo domain
 
 ---
 
-**Document Version**: 1.0
-**Last Updated**: 2026-05-03
-**Maintained by**: Architecture Team
-**Review Cycle**: Quarterly
+## 16. Kết luận
+
+Data governance trong hệ thống phần mềm lớn nên được thiết kế như một **năng lực nền của platform**, không phải một bộ tài liệu riêng lẻ. Giá trị thật của governance nằm ở chỗ nó biến metadata, policy, quality, lineage và audit thành các cơ chế thực thi được trong pipeline và trong runtime.
+
+Nếu triển khai đúng, tổ chức sẽ đạt được:
+
+- dữ liệu đáng tin hơn cho vận hành và ra quyết định,
+- thời gian điều tra sự cố ngắn hơn,
+- self-service nhanh hơn nhưng vẫn có kiểm soát,
+- compliance tốt hơn,
+- và nền tảng đủ sạch để mở rộng sang BI, AI, data products và tích hợp quy mô lớn.
