@@ -540,10 +540,16 @@ flowchart TB
 
 | Lựa chọn | Ưu điểm | Nhược điểm |
 |---|---|---|
-| Exactly-once | đạt được với nền tảng phù hợp và kiểm soát giao dịch chặt | chi phí hiệu năng và vận hành cao hơn |
+| Exactly-once | đạt được với nền tảng phù hợp như Kafka transactions, stream processors hỗ trợ transactional sinks hoặc database ACID flows | chi phí hiệu năng và vận hành cao hơn |
 | At-least-once + idempotent | thực dụng, hiệu năng tốt | cần kỷ luật dedup và idempotency |
 
 **Khuyến nghị**: đa số hệ lớn nên chọn at-least-once + idempotent processing; chỉ nên ưu tiên exactly-once cho các luồng mà duplicate gây tác động nghiệp vụ trực tiếp như billing, thanh toán hoặc ghi sổ tài chính.
+
+Mẫu triển khai thực dụng cho at-least-once:
+
+- dùng idempotency key dạng `source:id:timestamp` hoặc business key tương đương;
+- lưu trạng thái xử lý hoặc dedup window tại sink / serving layer;
+- thiết kế side effects theo hướng upsert, merge hoặc compare-and-swap thay vì insert mù.
 
 ### 13.5. Một kho dữ liệu duy nhất vs polyglot storage
 
