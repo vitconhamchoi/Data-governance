@@ -184,7 +184,7 @@ Một hệ governance chỉ chạy tốt khi metadata đủ tối thiểu ngay t
 - **Classification**: public, internal, confidential, restricted
 - **Sensitive Tags**: email, phone, national_id, health, finance, location...
 - **Purpose Constraints**: billing, support, analytics, fraud, research...
-- **SLA / SLO**: freshness, completeness, availability, accuracy
+- **SLA / SLO**: freshness, completeness, availability, accuracy với đơn vị đo và ngưỡng rõ ràng
 - **Lineage**: upstream, downstream, job_run_id, version, timestamp
 - **Retention Policy**: giữ bao lâu, archive khi nào, xóa khi nào
 - **Access Policy**: ai được truy cập, trong điều kiện nào, với obligations nào
@@ -202,6 +202,9 @@ Một hệ governance chỉ chạy tốt khi metadata đủ tối thiểu ngay t
 | sensitive_tags | email, phone, address |
 | contract_version | v3 |
 | freshness_slo | 30 phút |
+| freshness_reference | 30 phút tính từ thời điểm source phát sinh event đến lúc dataset trusted sẵn sàng để đọc |
+| completeness_slo | >= 99.5% số bản ghi kỳ vọng mỗi ngày |
+| availability_slo | 99.9% cho query path của trusted dataset |
 | retention | 5 năm |
 | access_policy | analyst-read-with-masking |
 | lineage_status | dataset-level |
@@ -537,7 +540,7 @@ flowchart TB
 
 | Lựa chọn | Ưu điểm | Nhược điểm |
 |---|---|---|
-| Exactly-once | đúng về mặt lý thuyết | đắt và phức tạp hơn |
+| Exactly-once | đạt được với nền tảng phù hợp và kiểm soát giao dịch chặt | chi phí hiệu năng và vận hành cao hơn |
 | At-least-once + idempotent | thực dụng, hiệu năng tốt | cần kỷ luật dedup và idempotency |
 
 **Khuyến nghị**: đa số hệ lớn nên chọn at-least-once + idempotent processing.
