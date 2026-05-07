@@ -202,7 +202,7 @@ Một hệ governance chỉ chạy tốt khi metadata đủ tối thiểu ngay t
 | sensitive_tags | email, phone, address |
 | contract_version | v3 |
 | freshness_slo | 30 phút |
-| freshness_reference | 30 phút tính từ thời điểm source phát sinh event đến lúc dataset trusted sẵn sàng để đọc |
+| freshness_slo_definition | 30 phút tính từ thời điểm source phát sinh event đến lúc dataset trusted sẵn sàng để đọc |
 | completeness_slo | >= 99.5% số bản ghi kỳ vọng mỗi ngày |
 | availability_slo | 99.9% cho query path của trusted dataset |
 | retention | 5 năm |
@@ -543,7 +543,7 @@ flowchart TB
 | Exactly-once | đạt được với nền tảng phù hợp và kiểm soát giao dịch chặt | chi phí hiệu năng và vận hành cao hơn |
 | At-least-once + idempotent | thực dụng, hiệu năng tốt | cần kỷ luật dedup và idempotency |
 
-**Khuyến nghị**: đa số hệ lớn nên chọn at-least-once + idempotent processing.
+**Khuyến nghị**: đa số hệ lớn nên chọn at-least-once + idempotent processing; chỉ nên ưu tiên exactly-once cho các luồng mà duplicate gây tác động nghiệp vụ trực tiếp như billing, thanh toán hoặc ghi sổ tài chính.
 
 ### 13.5. Một kho dữ liệu duy nhất vs polyglot storage
 
